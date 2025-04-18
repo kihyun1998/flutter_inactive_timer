@@ -1,0 +1,36 @@
+**/.dart_tool/
+.vscode/
+**/build/
+**/.idea/
+
+# example
+example/windows/
+**/*.iml
+
+example/macos/Podfile.lock
+example/macos/RunnerTests/
+example/macos/Runner/Assets.xcassets/
+example/macos/Runner/Configs
+example/macos/Runner/Base.lproj
+example/macos/Pods
+example/macos/Flutter
+
+# public
+**/pubspec.lock
+**/analysis_options.yaml
+**/README.md
+**/*.iml
+**/*.iml
+**/LICENSE
+**/CHANGELOG.md
+**/pubspec.yaml
+
+.gitignore
+.metadata
+CODE.md
+codemd*
+
+example/assets/app_icon*
+**/.flutter-plugin*
+
+mylib.dll

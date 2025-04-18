@@ -17,11 +17,16 @@ class FlutterInactiveTimer {
   /// Callback that is called when notification threshold is reached
   final void Function() onNotification;
 
+  /// If true, only explicit continue action will reset the timer after notification
+  /// If false, any user activity will reset the timer (default behavior)
+  final bool requireExplicitContinue;
+
   Timer? _timer;
   bool _isNotification = false;
   int _lastInputTime = 0;
   int _notificationTime = 0;
   bool _isMonitoring = false;
+  bool _lockInputReset = false;
 
   /// Creates an inactive timer with required parameters
   FlutterInactiveTimer({
@@ -29,6 +34,7 @@ class FlutterInactiveTimer {
     required this.notificationPer,
     required this.onInactiveDetected,
     required this.onNotification,
+    this.requireExplicitContinue = false, // 기본값은 기존 동작 유지
   });
 
   /// Initialize with default values (no monitoring)
@@ -39,9 +45,27 @@ class FlutterInactiveTimer {
         onNotification: () {},
       );
 
+  /// 사용자가 명시적으로 세션 계속하기를 선택했을 때 호출
+  void continueSession() {
+    if (_isMonitoring) {
+      _lockInputReset = false;
+      _resetTimer();
+    }
+  }
+
+  /// 타이머 리셋 (내부 메서드)
+  Future<void> _resetTimer() async {
+    _lastInputTime =
+        await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
+    _isNotification = false;
+    _scheduleNextCheck();
+  }
+
   /// Start monitoring for user inactivity
   Future<void> startMonitoring() async {
     _isMonitoring = true;
+    _isNotification = false;
+    _lockInputReset = false;
     _lastInputTime =
         await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
 
@@ -72,7 +96,8 @@ class FlutterInactiveTimer {
     int remainTime = timeoutDuration * 1000 - elapsedTime;
 
     if (notificationPer == 0) {
-      return remainTime > 0 ? remainTime : 1;
+      int delay = remainTime > 0 ? remainTime : 1;
+      return delay;
     }
 
     final notificationTime =
@@ -82,11 +107,14 @@ class FlutterInactiveTimer {
     if (remainTime <= 0) {
       return 1;
     } else if (elapsedTime < _notificationTime) {
-      return _isNotification ? remainTime : _notificationTime - elapsedTime;
+      int delay =
+          _isNotification ? remainTime : _notificationTime - elapsedTime;
+      return delay;
     } else if (!_isNotification) {
       return 1;
     } else {
-      return max(remainTime, 1000);
+      int delay = max(remainTime, 1000);
+      return delay;
     }
   }
 
@@ -101,7 +129,12 @@ class FlutterInactiveTimer {
           await FlutterInactiveTimerPlatform.instance.getLastInputTime();
       final inactiveDuration = currentTime - _lastInputTime;
 
-      if (lastSystemInputTime > _lastInputTime) {
+      // 알림 후 requireExplicitContinue가 true이고 _lockInputReset이 true인 경우
+      // 자동 리셋하지 않음
+      bool shouldResetTimer = lastSystemInputTime > _lastInputTime &&
+          !(requireExplicitContinue && _lockInputReset);
+
+      if (shouldResetTimer) {
         if (_isNotification) {
           _isNotification = false;
         }
@@ -120,12 +153,17 @@ class FlutterInactiveTimer {
             !_isNotification &&
             notificationPer > 0) {
           _isNotification = true;
+
+          // requireExplicitContinue가 true인 경우에만 입력 리셋 잠금
+          if (requireExplicitContinue) {
+            _lockInputReset = true;
+          }
+
           onNotification.call();
         }
         _scheduleNextCheck();
       }
     } catch (e) {
-      print('Error checking inactivity: $e');
       _scheduleNextCheck();
     }
   }

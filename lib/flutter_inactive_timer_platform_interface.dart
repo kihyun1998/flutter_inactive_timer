@@ -24,7 +24,13 @@ abstract class FlutterInactiveTimerPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<String?> getPlatformVersion() {
-    throw UnimplementedError('platformVersion() has not been implemented.');
+  /// Gets the current system tick count
+  Future<int> getSystemTickCount() {
+    throw UnimplementedError('getSystemTickCount() has not been implemented.');
+  }
+
+  /// Gets the time of the last user input
+  Future<int> getLastInputTime() {
+    throw UnimplementedError('getLastInputTime() has not been implemented.');
   }
 }

@@ -1,4 +1,3 @@
-
 import 'flutter_inactive_timer_platform_interface.dart';
 
 class FlutterInactiveTimer {

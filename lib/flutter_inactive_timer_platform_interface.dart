@@ -8,7 +8,8 @@ abstract class FlutterInactiveTimerPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static FlutterInactiveTimerPlatform _instance = MethodChannelFlutterInactiveTimer();
+  static FlutterInactiveTimerPlatform _instance =
+      MethodChannelFlutterInactiveTimer();
 
   /// The default instance of [FlutterInactiveTimerPlatform] to use.
   ///

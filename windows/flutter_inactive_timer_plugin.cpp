@@ -40,17 +40,26 @@ FlutterInactiveTimerPlugin::~FlutterInactiveTimerPlugin() {}
 void FlutterInactiveTimerPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
-  if (method_call.method_name().compare("getPlatformVersion") == 0) {
-    std::ostringstream version_stream;
-    version_stream << "Windows ";
-    if (IsWindows10OrGreater()) {
-      version_stream << "10+";
-    } else if (IsWindows8OrGreater()) {
-      version_stream << "8";
-    } else if (IsWindows7OrGreater()) {
-      version_stream << "7";
+  if (method_call.method_name().compare("getSystemTickCount") == 0) {
+    // Use GetTickCount64 to avoid overflow issues with GetTickCount
+    ULONGLONG tickCount = GetTickCount64();
+    // Convert to int64_t for EncodableValue
+    int64_t ticks = static_cast<int64_t>(tickCount);
+    result->Success(flutter::EncodableValue(ticks));
+  } else if (method_call.method_name().compare("getLastInputTime") == 0) {
+    LASTINPUTINFO lastInputInfo;
+    lastInputInfo.cbSize = sizeof(LASTINPUTINFO);
+    
+    if (GetLastInputInfo(&lastInputInfo)) {
+      // GetLastInputInfo returns a tick count, convert to int64_t for EncodableValue
+      int64_t lastInput = static_cast<int64_t>(lastInputInfo.dwTime);
+      result->Success(flutter::EncodableValue(lastInput));
+    } else {
+      // In case of error, return current tick count
+      ULONGLONG tickCount = GetTickCount64();
+      int64_t ticks = static_cast<int64_t>(tickCount);
+      result->Success(flutter::EncodableValue(ticks));
     }
-    result->Success(flutter::EncodableValue(version_stream.str()));
   } else {
     result->NotImplemented();
   }

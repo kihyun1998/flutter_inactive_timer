@@ -73,52 +73,316 @@ void main() {
 ```
 ## example/lib/main.dart
 ```dart
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_inactive_timer/flutter_inactive_timer.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  @override
-  void initState() {
-    super.initState();
-    initPlatformState();
-  }
-
-  // Platform messages are asynchronous, so we initialize in an async method.
-  Future<void> initPlatformState() async {
-    String platformVersion;
-
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    setState(() {});
-  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plugin example app'),
+      title: 'Inactive Timer Demo',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+      ),
+      home: const InactiveTimerDemo(),
+    );
+  }
+}
+
+class InactiveTimerDemo extends StatefulWidget {
+  const InactiveTimerDemo({super.key});
+
+  @override
+  State<InactiveTimerDemo> createState() => _InactiveTimerDemoState();
+}
+
+class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
+  FlutterInactiveTimer? _inactivityTimer;
+  bool _isMonitoring = false;
+  String _status = 'Not monitoring';
+
+  // 사용자 설정 가능한 값
+  int _timeoutDuration = 15; // 기본값 15초
+  int _notificationPercent = 70; // 기본값 70%
+
+  @override
+  void initState() {
+    super.initState();
+    _setupInactivityTimer();
+  }
+
+  void _setupInactivityTimer() {
+    _inactivityTimer = FlutterInactiveTimer(
+      timeoutDuration: _timeoutDuration,
+      notificationPer: _notificationPercent,
+      onInactiveDetected: _handleInactiveDetected,
+      onNotification: _handleNotification,
+      requireExplicitContinue: true,
+    );
+  }
+
+  void _handleInactiveDetected() {
+    setState(() {
+      _status = 'Inactive detected';
+      _isMonitoring = false;
+    });
+
+    // 다이얼로그 표시
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Session Expired'),
+            content: const Text(
+              'You have been inactive for too long. Your session has expired.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // _startMonitoring(); // 선택적으로 다시 모니터링 시작
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
+  void _handleNotification() {
+    // Snackbar로 경고 표시
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+              'Warning: Your session will expire soon due to inactivity!'),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Continue Session',
+            onPressed: () {
+              // 사용자가 버튼을 누르면 입력 이벤트가 발생하므로 타이머가 자동으로 리셋됨
+            },
+          ),
         ),
-        body: Center(
-          child: Text('Running on: \n'),
+      );
+    }
+  }
+
+  void _startMonitoring() async {
+    if (_inactivityTimer == null) return;
+
+    await _inactivityTimer!.startMonitoring();
+
+    setState(() {
+      _status = 'Monitoring active';
+      _isMonitoring = true;
+    });
+
+    // 모니터링 시작 알림
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Inactivity monitoring started'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _stopMonitoring() {
+    if (_inactivityTimer == null) return;
+
+    _inactivityTimer!.stopMonitoring();
+
+    setState(() {
+      _status = 'Monitoring stopped';
+      _isMonitoring = false;
+    });
+  }
+
+  // 설정 변경 시 타이머 재설정
+  void _updateTimerSettings() {
+    if (_isMonitoring) {
+      _stopMonitoring();
+    }
+
+    _setupInactivityTimer();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Timer settings updated'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Inactive Timer Example'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Status: $_status',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Current Settings:',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Timeout: $_timeoutDuration seconds'),
+                      Text(
+                          'Notification at: $_notificationPercent% of timeout'),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 타임아웃 설정
+              Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Timer Settings',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      Text('Timeout Duration: $_timeoutDuration seconds'),
+                      Slider(
+                        value: _timeoutDuration.toDouble(),
+                        min: 5,
+                        max: 60,
+                        divisions: 11,
+                        label: '$_timeoutDuration seconds',
+                        onChanged: (value) {
+                          setState(() {
+                            _timeoutDuration = value.round();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Notification Threshold: $_notificationPercent%'),
+                      Slider(
+                        value: _notificationPercent.toDouble(),
+                        min: 0,
+                        max: 100,
+                        divisions: 10,
+                        label: '$_notificationPercent%',
+                        onChanged: (value) {
+                          setState(() {
+                            _notificationPercent = value.round();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: _updateTimerSettings,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                          ),
+                          child: const Text('Apply Settings'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 데모 설명
+              Card(
+                margin: const EdgeInsets.only(bottom: 24),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('What this demo shows:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      SizedBox(height: 8),
+                      Text(
+                          '• A Snackbar warning when reaching the notification threshold'),
+                      Text('• A Dialog when inactive timeout is reached'),
+                      Text(
+                          '• Customizable timeout duration and notification threshold'),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 제어 버튼
+              Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isMonitoring ? null : _startMonitoring,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Start Monitoring'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton(
+                      onPressed: _isMonitoring ? _stopMonitoring : null,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Stop Monitoring'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        color: Colors.black12,
+        child: const Text(
+          'Move your mouse or use keyboard to reset the inactivity timer.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontStyle: FontStyle.italic),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    // 정리 작업
+    _inactivityTimer?.stopMonitoring();
+    super.dispose();
   }
 }
 
@@ -1121,11 +1385,16 @@ class FlutterInactiveTimer {
   /// Callback that is called when notification threshold is reached
   final void Function() onNotification;
 
+  /// If true, only explicit continue action will reset the timer after notification
+  /// If false, any user activity will reset the timer (default behavior)
+  final bool requireExplicitContinue;
+
   Timer? _timer;
   bool _isNotification = false;
   int _lastInputTime = 0;
   int _notificationTime = 0;
   bool _isMonitoring = false;
+  bool _lockInputReset = false;
 
   /// Creates an inactive timer with required parameters
   FlutterInactiveTimer({
@@ -1133,6 +1402,7 @@ class FlutterInactiveTimer {
     required this.notificationPer,
     required this.onInactiveDetected,
     required this.onNotification,
+    this.requireExplicitContinue = false, // 기본값은 기존 동작 유지
   });
 
   /// Initialize with default values (no monitoring)
@@ -1143,9 +1413,27 @@ class FlutterInactiveTimer {
         onNotification: () {},
       );
 
+  /// 사용자가 명시적으로 세션 계속하기를 선택했을 때 호출
+  void continueSession() {
+    if (_isMonitoring) {
+      _lockInputReset = false;
+      _resetTimer();
+    }
+  }
+
+  /// 타이머 리셋 (내부 메서드)
+  Future<void> _resetTimer() async {
+    _lastInputTime =
+        await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
+    _isNotification = false;
+    _scheduleNextCheck();
+  }
+
   /// Start monitoring for user inactivity
   Future<void> startMonitoring() async {
     _isMonitoring = true;
+    _isNotification = false;
+    _lockInputReset = false;
     _lastInputTime =
         await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
 
@@ -1176,7 +1464,8 @@ class FlutterInactiveTimer {
     int remainTime = timeoutDuration * 1000 - elapsedTime;
 
     if (notificationPer == 0) {
-      return remainTime > 0 ? remainTime : 1;
+      int delay = remainTime > 0 ? remainTime : 1;
+      return delay;
     }
 
     final notificationTime =
@@ -1186,11 +1475,14 @@ class FlutterInactiveTimer {
     if (remainTime <= 0) {
       return 1;
     } else if (elapsedTime < _notificationTime) {
-      return _isNotification ? remainTime : _notificationTime - elapsedTime;
+      int delay =
+          _isNotification ? remainTime : _notificationTime - elapsedTime;
+      return delay;
     } else if (!_isNotification) {
       return 1;
     } else {
-      return max(remainTime, 1000);
+      int delay = max(remainTime, 1000);
+      return delay;
     }
   }
 
@@ -1205,7 +1497,12 @@ class FlutterInactiveTimer {
           await FlutterInactiveTimerPlatform.instance.getLastInputTime();
       final inactiveDuration = currentTime - _lastInputTime;
 
-      if (lastSystemInputTime > _lastInputTime) {
+      // 알림 후 requireExplicitContinue가 true이고 _lockInputReset이 true인 경우
+      // 자동 리셋하지 않음
+      bool shouldResetTimer = lastSystemInputTime > _lastInputTime &&
+          !(requireExplicitContinue && _lockInputReset);
+
+      if (shouldResetTimer) {
         if (_isNotification) {
           _isNotification = false;
         }
@@ -1224,12 +1521,17 @@ class FlutterInactiveTimer {
             !_isNotification &&
             notificationPer > 0) {
           _isNotification = true;
+
+          // requireExplicitContinue가 true인 경우에만 입력 리셋 잠금
+          if (requireExplicitContinue) {
+            _lockInputReset = true;
+          }
+
           onNotification.call();
         }
         _scheduleNextCheck();
       }
     } catch (e) {
-      print('Error checking inactivity: $e');
       _scheduleNextCheck();
     }
   }
@@ -1592,17 +1894,26 @@ FlutterInactiveTimerPlugin::~FlutterInactiveTimerPlugin() {}
 void FlutterInactiveTimerPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
-  if (method_call.method_name().compare("getPlatformVersion") == 0) {
-    std::ostringstream version_stream;
-    version_stream << "Windows ";
-    if (IsWindows10OrGreater()) {
-      version_stream << "10+";
-    } else if (IsWindows8OrGreater()) {
-      version_stream << "8";
-    } else if (IsWindows7OrGreater()) {
-      version_stream << "7";
+  if (method_call.method_name().compare("getSystemTickCount") == 0) {
+    // Use GetTickCount64 to avoid overflow issues with GetTickCount
+    ULONGLONG tickCount = GetTickCount64();
+    // Convert to int64_t for EncodableValue
+    int64_t ticks = static_cast<int64_t>(tickCount);
+    result->Success(flutter::EncodableValue(ticks));
+  } else if (method_call.method_name().compare("getLastInputTime") == 0) {
+    LASTINPUTINFO lastInputInfo;
+    lastInputInfo.cbSize = sizeof(LASTINPUTINFO);
+    
+    if (GetLastInputInfo(&lastInputInfo)) {
+      // GetLastInputInfo returns a tick count, convert to int64_t for EncodableValue
+      int64_t lastInput = static_cast<int64_t>(lastInputInfo.dwTime);
+      result->Success(flutter::EncodableValue(lastInput));
+    } else {
+      // In case of error, return current tick count
+      ULONGLONG tickCount = GetTickCount64();
+      int64_t ticks = static_cast<int64_t>(tickCount);
+      result->Success(flutter::EncodableValue(ticks));
     }
-    result->Success(flutter::EncodableValue(version_stream.str()));
   } else {
     result->NotImplemented();
   }

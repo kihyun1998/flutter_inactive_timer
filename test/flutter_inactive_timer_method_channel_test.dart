@@ -14,7 +14,14 @@ void main() {
         .setMockMethodCallHandler(
       channel,
       (MethodCall methodCall) async {
-        return '42';
+        switch (methodCall.method) {
+          case 'getSystemTickCount':
+            return 1000;
+          case 'getLastInputTime':
+            return 950;
+          default:
+            return null;
+        }
       },
     );
   });
@@ -22,5 +29,13 @@ void main() {
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+  });
+
+  test('getSystemTickCount', () async {
+    expect(await platform.getSystemTickCount(), 1000);
+  });
+
+  test('getLastInputTime', () async {
+    expect(await platform.getLastInputTime(), 950);
   });
 }

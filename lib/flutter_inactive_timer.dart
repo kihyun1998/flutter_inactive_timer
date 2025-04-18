@@ -34,7 +34,7 @@ class FlutterInactiveTimer {
     required this.notificationPer,
     required this.onInactiveDetected,
     required this.onNotification,
-    this.requireExplicitContinue = false, // 기본값은 기존 동작 유지
+    this.requireExplicitContinue = false, // default behavior
   });
 
   /// Initialize with default values (no monitoring)
@@ -45,7 +45,7 @@ class FlutterInactiveTimer {
         onNotification: () {},
       );
 
-  /// 사용자가 명시적으로 세션 계속하기를 선택했을 때 호출
+  /// Called when the user explicitly chooses to continue the session
   void continueSession() {
     if (_isMonitoring) {
       _lockInputReset = false;
@@ -53,7 +53,7 @@ class FlutterInactiveTimer {
     }
   }
 
-  /// 타이머 리셋 (내부 메서드)
+  /// Reset the timer (internal method)
   Future<void> _resetTimer() async {
     _lastInputTime =
         await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
@@ -129,8 +129,8 @@ class FlutterInactiveTimer {
           await FlutterInactiveTimerPlatform.instance.getLastInputTime();
       final inactiveDuration = currentTime - _lastInputTime;
 
-      // 알림 후 requireExplicitContinue가 true이고 _lockInputReset이 true인 경우
-      // 자동 리셋하지 않음
+      // If notification has been triggered and requireExplicitContinue is true,
+      // do not reset the timer automatically
       bool shouldResetTimer = lastSystemInputTime > _lastInputTime &&
           !(requireExplicitContinue && _lockInputReset);
 
@@ -154,7 +154,7 @@ class FlutterInactiveTimer {
             notificationPer > 0) {
           _isNotification = true;
 
-          // requireExplicitContinue가 true인 경우에만 입력 리셋 잠금
+          // Lock reset only if requireExplicitContinue is true
           if (requireExplicitContinue) {
             _lockInputReset = true;
           }

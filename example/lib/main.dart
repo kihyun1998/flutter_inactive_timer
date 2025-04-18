@@ -62,10 +62,10 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
   bool _isMonitoring = false;
   String _status = 'Not monitoring';
 
-  // 사용자 설정 가능한 값
-  int _timeoutDuration = 15; // 기본값 15초
-  int _notificationPercent = 70; // 기본값 70%
-  bool _requireExplicitContinue = true; // 명시적 계속 필요
+  // User-configurable values
+  int _timeoutDuration = 15; // default: 15 seconds
+  int _notificationPercent = 70; // default: 70%
+  bool _requireExplicitContinue = true; // Require explicit continue
 
   @override
   void initState() {
@@ -89,7 +89,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
       _isMonitoring = false;
     });
 
-    // 다이얼로그 표시
+    // Show a dialog when timeout occurs
     if (mounted) {
       showDialog(
         context: context,
@@ -104,7 +104,6 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  // _startMonitoring(); // 선택적으로 다시 모니터링 시작
                 },
                 child: const Text('OK'),
               ),
@@ -116,7 +115,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
   }
 
   void _handleNotification() {
-    // Snackbar로 경고 표시
+    // Show warning via snackbar
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -126,7 +125,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
           action: SnackBarAction(
             label: 'Continue Session',
             onPressed: () {
-              // 사용자가 버튼을 누르면 명시적으로 세션 계속
+              // Resume session explicitly when user presses the button
               _inactivityTimer?.continueSession();
             },
           ),
@@ -145,7 +144,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
       _isMonitoring = true;
     });
 
-    // 모니터링 시작 알림
+    // Notify that monitoring has started
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Inactivity monitoring started'),
@@ -165,7 +164,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
     });
   }
 
-  // 설정 변경 시 타이머 재설정
+  // Reconfigure the timer when settings change
   void _updateTimerSettings() {
     if (_isMonitoring) {
       _stopMonitoring();
@@ -213,7 +212,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
               ),
             ),
 
-            // 타임아웃 설정
+            // Timer Settings
             Card(
               margin: const EdgeInsets.only(bottom: 16),
               child: Padding(
@@ -282,7 +281,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
               ),
             ),
 
-            // 데모 설명
+            // Demo Description
             Card(
               margin: const EdgeInsets.only(bottom: 24),
               child: Padding(
@@ -303,7 +302,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
               ),
             ),
 
-            // 제어 버튼
+            // Control Buttons
             Center(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -336,7 +335,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
 
   @override
   void dispose() {
-    // 정리 작업
+    // Clean up
     _inactivityTimer?.stopMonitoring();
     super.dispose();
   }
@@ -350,18 +349,18 @@ class MultiModeDemo extends StatefulWidget {
 }
 
 class _MultiModeDemoState extends State<MultiModeDemo> {
-  // 좌측 타이머
+  // Left timer
   FlutterInactiveTimer? _leftTimer;
   bool _isLeftMonitoring = false;
   String _leftStatus = 'Not monitoring';
-  int _leftTimeoutDuration = 10; // 10초
+  int _leftTimeoutDuration = 10; // 10 sec
   int _leftNotificationPercent = 50; // 50%
 
-  // 우측 타이머
+  // Right timer
   FlutterInactiveTimer? _rightTimer;
   bool _isRightMonitoring = false;
   String _rightStatus = 'Not monitoring';
-  int _rightTimeoutDuration = 20; // 20초
+  int _rightTimeoutDuration = 20; // 20 sec
   int _rightNotificationPercent = 80; // 80%
 
   @override
@@ -371,7 +370,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
   }
 
   void _setupTimers() {
-    // 좌측 타이머 설정
+    // Configure left timer
     _leftTimer = FlutterInactiveTimer(
       timeoutDuration: _leftTimeoutDuration,
       notificationPer: _leftNotificationPercent,
@@ -388,7 +387,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
       },
     );
 
-    // 우측 타이머 설정
+    // Configure right timer
     _rightTimer = FlutterInactiveTimer(
       timeoutDuration: _rightTimeoutDuration,
       notificationPer: _rightNotificationPercent,
@@ -406,7 +405,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
     );
   }
 
-  // 좌측 타이머 시작
+  // Start left timer
   void _startLeftTimer() async {
     if (_leftTimer == null) return;
 
@@ -418,7 +417,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
     });
   }
 
-  // 좌측 타이머 중지
+  // Stop left timer
   void _stopLeftTimer() {
     if (_leftTimer == null) return;
 
@@ -430,13 +429,13 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
     });
   }
 
-  // 좌측 타이머 설정 업데이트
+  // Upate left timer settings
   void _updateLeftTimer() {
     if (_isLeftMonitoring) {
       _stopLeftTimer();
     }
 
-    _setupTimers(); // 양쪽 타이머 모두 재설정
+    _setupTimers();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -446,7 +445,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
     );
   }
 
-  // 우측 타이머 시작
+  // Start right timer
   void _startRightTimer() async {
     if (_rightTimer == null) return;
 
@@ -458,7 +457,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
     });
   }
 
-  // 우측 타이머 중지
+  // Stop right timer
   void _stopRightTimer() {
     if (_rightTimer == null) return;
 
@@ -470,13 +469,13 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
     });
   }
 
-  // 우측 타이머 설정 업데이트
+  // Update right timer setting
   void _updateRightTimer() {
     if (_isRightMonitoring) {
       _stopRightTimer();
     }
 
-    _setupTimers(); // 양쪽 타이머 모두 재설정
+    _setupTimers();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -507,7 +506,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 좌측 타이머
+                // Left Timer
                 Expanded(
                   child: Card(
                     child: Padding(
@@ -532,7 +531,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
                                           : null)),
                           const SizedBox(height: 16),
 
-                          // 좌측 타이머 설정 슬라이더
+                          // Left timer settings slider
                           Text('Timeout: $_leftTimeoutDuration seconds'),
                           Slider(
                             value: _leftTimeoutDuration.toDouble(),
@@ -561,7 +560,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
                             },
                           ),
 
-                          // 업데이트 버튼
+                          // Update Button
                           Center(
                             child: ElevatedButton(
                               onPressed: _updateLeftTimer,
@@ -571,7 +570,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
 
                           const Spacer(),
 
-                          // 제어 버튼
+                          // Control Button
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -596,7 +595,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
 
                 const SizedBox(width: 16),
 
-                // 우측 타이머
+                // RightTimer
                 Expanded(
                   child: Card(
                     child: Padding(
@@ -621,7 +620,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
                                           : null)),
                           const SizedBox(height: 16),
 
-                          // 우측 타이머 설정 슬라이더
+                          // Right timer settings slider
                           Text('Timeout: $_rightTimeoutDuration seconds'),
                           Slider(
                             value: _rightTimeoutDuration.toDouble(),
@@ -650,7 +649,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
                             },
                           ),
 
-                          // 업데이트 버튼
+                          // Update Button
                           Center(
                             child: ElevatedButton(
                               onPressed: _updateRightTimer,
@@ -660,7 +659,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
 
                           const Spacer(),
 
-                          // 제어 버튼
+                          // Control button
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

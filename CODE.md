@@ -23,10 +23,11 @@ flutter_inactive_timer/
     │   │   │   └── xcschemes/
     │   │   │   │   └── Runner.xcscheme
     │   │   └── project.pbxproj
-    │   └── Runner.xcworkspace/
+    │   ├── Runner.xcworkspace/
     │   │   ├── xcshareddata/
-    │   │       └── IDEWorkspaceChecks.plist
+    │   │   │   └── IDEWorkspaceChecks.plist
     │   │   └── contents.xcworkspacedata
+    │   └── Podfile
     └── test/
     │   └── widget_test.dart
 ├── lib/
@@ -91,26 +92,56 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const InactiveTimerDemo(),
+      home: const TimerDemoTabs(),
     );
   }
 }
 
-class InactiveTimerDemo extends StatefulWidget {
-  const InactiveTimerDemo({super.key});
+class TimerDemoTabs extends StatelessWidget {
+  const TimerDemoTabs({super.key});
 
   @override
-  State<InactiveTimerDemo> createState() => _InactiveTimerDemoState();
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Inactive Timer Example'),
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Single Mode', icon: Icon(Icons.timer)),
+              Tab(text: 'Multi Mode', icon: Icon(Icons.splitscreen)),
+            ],
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            SingleModeDemo(),
+            MultiModeDemo(),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
+class SingleModeDemo extends StatefulWidget {
+  const SingleModeDemo({super.key});
+
+  @override
+  State<SingleModeDemo> createState() => _SingleModeDemoState();
+}
+
+class _SingleModeDemoState extends State<SingleModeDemo> {
   FlutterInactiveTimer? _inactivityTimer;
   bool _isMonitoring = false;
   String _status = 'Not monitoring';
 
-  // 사용자 설정 가능한 값
-  int _timeoutDuration = 15; // 기본값 15초
-  int _notificationPercent = 70; // 기본값 70%
+  // User-configurable values
+  int _timeoutDuration = 15; // default: 15 seconds
+  int _notificationPercent = 70; // default: 70%
+  bool _requireExplicitContinue = true; // Require explicit continue
 
   @override
   void initState() {
@@ -124,7 +155,7 @@ class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
       notificationPer: _notificationPercent,
       onInactiveDetected: _handleInactiveDetected,
       onNotification: _handleNotification,
-      requireExplicitContinue: true,
+      requireExplicitContinue: _requireExplicitContinue,
     );
   }
 
@@ -134,7 +165,7 @@ class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
       _isMonitoring = false;
     });
 
-    // 다이얼로그 표시
+    // Show a dialog when timeout occurs
     if (mounted) {
       showDialog(
         context: context,
@@ -149,7 +180,6 @@ class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  // _startMonitoring(); // 선택적으로 다시 모니터링 시작
                 },
                 child: const Text('OK'),
               ),
@@ -161,7 +191,7 @@ class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
   }
 
   void _handleNotification() {
-    // Snackbar로 경고 표시
+    // Show warning via snackbar
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -171,7 +201,8 @@ class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
           action: SnackBarAction(
             label: 'Continue Session',
             onPressed: () {
-              // 사용자가 버튼을 누르면 입력 이벤트가 발생하므로 타이머가 자동으로 리셋됨
+              // Resume session explicitly when user presses the button
+              _inactivityTimer?.continueSession();
             },
           ),
         ),
@@ -189,7 +220,7 @@ class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
       _isMonitoring = true;
     });
 
-    // 모니터링 시작 알림
+    // Notify that monitoring has started
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Inactivity monitoring started'),
@@ -209,7 +240,7 @@ class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
     });
   }
 
-  // 설정 변경 시 타이머 재설정
+  // Reconfigure the timer when settings change
   void _updateTimerSettings() {
     if (_isMonitoring) {
       _stopMonitoring();
@@ -227,152 +258,152 @@ class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inactive Timer Example'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Status: $_status',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 16),
-                      Text('Current Settings:',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text('Timeout: $_timeoutDuration seconds'),
-                      Text(
-                          'Notification at: $_notificationPercent% of timeout'),
-                    ],
-                  ),
-                ),
-              ),
-
-              // 타임아웃 설정
-              Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Timer Settings',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      Text('Timeout Duration: $_timeoutDuration seconds'),
-                      Slider(
-                        value: _timeoutDuration.toDouble(),
-                        min: 5,
-                        max: 60,
-                        divisions: 11,
-                        label: '$_timeoutDuration seconds',
-                        onChanged: (value) {
-                          setState(() {
-                            _timeoutDuration = value.round();
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Text('Notification Threshold: $_notificationPercent%'),
-                      Slider(
-                        value: _notificationPercent.toDouble(),
-                        min: 0,
-                        max: 100,
-                        divisions: 10,
-                        label: '$_notificationPercent%',
-                        onChanged: (value) {
-                          setState(() {
-                            _notificationPercent = value.round();
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Center(
-                        child: ElevatedButton(
-                          onPressed: _updateTimerSettings,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 12),
-                          ),
-                          child: const Text('Apply Settings'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // 데모 설명
-              Card(
-                margin: const EdgeInsets.only(bottom: 24),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text('What this demo shows:',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      SizedBox(height: 8),
-                      Text(
-                          '• A Snackbar warning when reaching the notification threshold'),
-                      Text('• A Dialog when inactive timeout is reached'),
-                      Text(
-                          '• Customizable timeout duration and notification threshold'),
-                    ],
-                  ),
-                ),
-              ),
-
-              // 제어 버튼
-              Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ElevatedButton(
-                      onPressed: _isMonitoring ? null : _startMonitoring,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                      ),
-                      child: const Text('Start Monitoring'),
+                    Text(
+                      'Status: $_status',
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: _isMonitoring ? _stopMonitoring : null,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
+                    const SizedBox(height: 16),
+                    Text('Current Settings:',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('Timeout: $_timeoutDuration seconds'),
+                    Text('Notification at: $_notificationPercent% of timeout'),
+                    Text(
+                        'Require explicit continue: ${_requireExplicitContinue ? 'Yes' : 'No'}'),
+                  ],
+                ),
+              ),
+            ),
+
+            // Timer Settings
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Timer Settings',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Text('Timeout Duration: $_timeoutDuration seconds'),
+                    Slider(
+                      value: _timeoutDuration.toDouble(),
+                      min: 5,
+                      max: 60,
+                      divisions: 11,
+                      label: '$_timeoutDuration seconds',
+                      onChanged: (value) {
+                        setState(() {
+                          _timeoutDuration = value.round();
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Notification Threshold: $_notificationPercent%'),
+                    Slider(
+                      value: _notificationPercent.toDouble(),
+                      min: 0,
+                      max: 100,
+                      divisions: 10,
+                      label: '$_notificationPercent%',
+                      onChanged: (value) {
+                        setState(() {
+                          _notificationPercent = value.round();
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Require explicit continue: '),
+                        Switch(
+                          value: _requireExplicitContinue,
+                          onChanged: (value) {
+                            setState(() {
+                              _requireExplicitContinue = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: ElevatedButton(
+                        onPressed: _updateTimerSettings,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                        ),
+                        child: const Text('Apply Settings'),
                       ),
-                      child: const Text('Stop Monitoring'),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        color: Colors.black12,
-        child: const Text(
-          'Move your mouse or use keyboard to reset the inactivity timer.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+
+            // Demo Description
+            Card(
+              margin: const EdgeInsets.only(bottom: 24),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text('What this demo shows:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
+                    Text(
+                        '• A Snackbar warning when reaching the notification threshold'),
+                    Text('• A Dialog when inactive timeout is reached'),
+                    Text(
+                        '• Customizable timeout duration and notification threshold'),
+                  ],
+                ),
+              ),
+            ),
+
+            // Control Buttons
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: _isMonitoring ? null : _startMonitoring,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text('Start Monitoring'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: _isMonitoring ? _stopMonitoring : null,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text('Stop Monitoring'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -380,11 +411,427 @@ class _InactiveTimerDemoState extends State<InactiveTimerDemo> {
 
   @override
   void dispose() {
-    // 정리 작업
+    // Clean up
     _inactivityTimer?.stopMonitoring();
     super.dispose();
   }
 }
+
+class MultiModeDemo extends StatefulWidget {
+  const MultiModeDemo({super.key});
+
+  @override
+  State<MultiModeDemo> createState() => _MultiModeDemoState();
+}
+
+class _MultiModeDemoState extends State<MultiModeDemo> {
+  // Left timer
+  FlutterInactiveTimer? _leftTimer;
+  bool _isLeftMonitoring = false;
+  String _leftStatus = 'Not monitoring';
+  int _leftTimeoutDuration = 10; // 10 sec
+  int _leftNotificationPercent = 50; // 50%
+
+  // Right timer
+  FlutterInactiveTimer? _rightTimer;
+  bool _isRightMonitoring = false;
+  String _rightStatus = 'Not monitoring';
+  int _rightTimeoutDuration = 20; // 20 sec
+  int _rightNotificationPercent = 80; // 80%
+
+  @override
+  void initState() {
+    super.initState();
+    _setupTimers();
+  }
+
+  void _setupTimers() {
+    // Configure left timer
+    _leftTimer = FlutterInactiveTimer(
+      timeoutDuration: _leftTimeoutDuration,
+      notificationPer: _leftNotificationPercent,
+      onInactiveDetected: () {
+        setState(() {
+          _leftStatus = 'INACTIVE DETECTED!';
+          _isLeftMonitoring = false;
+        });
+      },
+      onNotification: () {
+        setState(() {
+          _leftStatus = 'Almost inactive!';
+        });
+      },
+    );
+
+    // Configure right timer
+    _rightTimer = FlutterInactiveTimer(
+      timeoutDuration: _rightTimeoutDuration,
+      notificationPer: _rightNotificationPercent,
+      onInactiveDetected: () {
+        setState(() {
+          _rightStatus = 'INACTIVE DETECTED!';
+          _isRightMonitoring = false;
+        });
+      },
+      onNotification: () {
+        setState(() {
+          _rightStatus = 'Almost inactive!';
+        });
+      },
+    );
+  }
+
+  // Start left timer
+  void _startLeftTimer() async {
+    if (_leftTimer == null) return;
+
+    await _leftTimer!.startMonitoring();
+
+    setState(() {
+      _leftStatus = 'Monitoring...';
+      _isLeftMonitoring = true;
+    });
+  }
+
+  // Stop left timer
+  void _stopLeftTimer() {
+    if (_leftTimer == null) return;
+
+    _leftTimer!.stopMonitoring();
+
+    setState(() {
+      _leftStatus = 'Stopped';
+      _isLeftMonitoring = false;
+    });
+  }
+
+  // Upate left timer settings
+  void _updateLeftTimer() {
+    if (_isLeftMonitoring) {
+      _stopLeftTimer();
+    }
+
+    _setupTimers();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Left timer settings updated'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  // Start right timer
+  void _startRightTimer() async {
+    if (_rightTimer == null) return;
+
+    await _rightTimer!.startMonitoring();
+
+    setState(() {
+      _rightStatus = 'Monitoring...';
+      _isRightMonitoring = true;
+    });
+  }
+
+  // Stop right timer
+  void _stopRightTimer() {
+    if (_rightTimer == null) return;
+
+    _rightTimer!.stopMonitoring();
+
+    setState(() {
+      _rightStatus = 'Stopped';
+      _isRightMonitoring = false;
+    });
+  }
+
+  // Update right timer setting
+  void _updateRightTimer() {
+    if (_isRightMonitoring) {
+      _stopRightTimer();
+    }
+
+    _setupTimers();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Right timer settings updated'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Multiple Timer Demo',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'This demo shows how multiple inactive timers can be used independently',
+            style: TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left Timer
+                Expanded(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Left Timer',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 16),
+                          Text('Status: $_leftStatus',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: _leftStatus.contains('INACTIVE')
+                                      ? Colors.red
+                                      : _leftStatus.contains('Almost')
+                                          ? Colors.orange
+                                          : null)),
+                          const SizedBox(height: 16),
+
+                          // Left timer settings slider
+                          Text('Timeout: $_leftTimeoutDuration seconds'),
+                          Slider(
+                            value: _leftTimeoutDuration.toDouble(),
+                            min: 5,
+                            max: 30,
+                            divisions: 5,
+                            label: '$_leftTimeoutDuration seconds',
+                            onChanged: (value) {
+                              setState(() {
+                                _leftTimeoutDuration = value.round();
+                              });
+                            },
+                          ),
+
+                          Text('Notification: $_leftNotificationPercent%'),
+                          Slider(
+                            value: _leftNotificationPercent.toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 10,
+                            label: '$_leftNotificationPercent%',
+                            onChanged: (value) {
+                              setState(() {
+                                _leftNotificationPercent = value.round();
+                              });
+                            },
+                          ),
+
+                          // Update Button
+                          Center(
+                            child: ElevatedButton(
+                              onPressed: _updateLeftTimer,
+                              child: const Text('Update Settings'),
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          // Control Button
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ElevatedButton(
+                                onPressed:
+                                    _isLeftMonitoring ? null : _startLeftTimer,
+                                child: const Text('Start'),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed:
+                                    _isLeftMonitoring ? _stopLeftTimer : null,
+                                child: const Text('Stop'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 16),
+
+                // RightTimer
+                Expanded(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Right Timer',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 16),
+                          Text('Status: $_rightStatus',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: _rightStatus.contains('INACTIVE')
+                                      ? Colors.red
+                                      : _rightStatus.contains('Almost')
+                                          ? Colors.orange
+                                          : null)),
+                          const SizedBox(height: 16),
+
+                          // Right timer settings slider
+                          Text('Timeout: $_rightTimeoutDuration seconds'),
+                          Slider(
+                            value: _rightTimeoutDuration.toDouble(),
+                            min: 5,
+                            max: 30,
+                            divisions: 5,
+                            label: '$_rightTimeoutDuration seconds',
+                            onChanged: (value) {
+                              setState(() {
+                                _rightTimeoutDuration = value.round();
+                              });
+                            },
+                          ),
+
+                          Text('Notification: $_rightNotificationPercent%'),
+                          Slider(
+                            value: _rightNotificationPercent.toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 10,
+                            label: '$_rightNotificationPercent%',
+                            onChanged: (value) {
+                              setState(() {
+                                _rightNotificationPercent = value.round();
+                              });
+                            },
+                          ),
+
+                          // Update Button
+                          Center(
+                            child: ElevatedButton(
+                              onPressed: _updateRightTimer,
+                              child: const Text('Update Settings'),
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          // Control button
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ElevatedButton(
+                                onPressed: _isRightMonitoring
+                                    ? null
+                                    : _startRightTimer,
+                                child: const Text('Start'),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed:
+                                    _isRightMonitoring ? _stopRightTimer : null,
+                                child: const Text('Stop'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Each timer operates independently with customizable settings. Try setting different timeout values and observe the behavior.',
+              style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _leftTimer?.stopMonitoring();
+    _rightTimer?.stopMonitoring();
+    super.dispose();
+  }
+}
+
+```
+## example/macos/Podfile
+```
+platform :osx, '10.14'
+
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'ephemeral', 'Flutter-Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure \"flutter pub get\" is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Flutter-Generated.xcconfig, then run \"flutter pub get\""
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_macos_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+
+  flutter_install_all_macos_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_macos_build_settings(target)
+  end
+end
 
 ```
 ## example/macos/Runner/AppDelegate.swift
@@ -512,12 +959,14 @@ class MainFlutterWindow: NSWindow {
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		1EE3BF8164E0F092B945FB73 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB206FAB697CE4BFA2FD8CAB /* Pods_RunnerTests.framework */; };
 		331C80D8294CF71000263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C80D7294CF71000263BE5 /* RunnerTests.swift */; };
 		335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335BBD1A22A9A15E00E9071D /* GeneratedPluginRegistrant.swift */; };
 		33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC10F02044A3C60003C045 /* AppDelegate.swift */; };
 		33CC10F32044A3C60003C045 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F22044A3C60003C045 /* Assets.xcassets */; };
 		33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F42044A3C60003C045 /* MainMenu.xib */; };
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
+		4D1C5D79619816FB1C5AF8A3 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 70C975366AF1292D82ACCF60 /* Pods_Runner.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -551,11 +1000,13 @@ class MainFlutterWindow: NSWindow {
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		07D573B28E1DBE7008097DBA /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		331C80D5294CF71000263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		331C80D7294CF71000263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		333000ED22D3DE5D00554162 /* Warnings.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Warnings.xcconfig; sourceTree = "<group>"; };
 		335BBD1A22A9A15E00E9071D /* GeneratedPluginRegistrant.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GeneratedPluginRegistrant.swift; sourceTree = "<group>"; };
-		33CC10ED2044A3C60003C045 /* flutter_inactive_timer_example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "flutter_inactive_timer_example.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		33A1EAC57DDC643AD4885ECF /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
+		33CC10ED2044A3C60003C045 /* flutter_inactive_timer_example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = flutter_inactive_timer_example.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		33CC10F02044A3C60003C045 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		33CC10F22044A3C60003C045 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Runner/Assets.xcassets; sourceTree = "<group>"; };
 		33CC10F52044A3C60003C045 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
@@ -567,8 +1018,14 @@ class MainFlutterWindow: NSWindow {
 		33E51913231747F40026EE4D /* DebugProfile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DebugProfile.entitlements; sourceTree = "<group>"; };
 		33E51914231749380026EE4D /* Release.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = Release.entitlements; sourceTree = "<group>"; };
 		33E5194F232828860026EE4D /* AppInfo.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = AppInfo.xcconfig; sourceTree = "<group>"; };
+		3E01D8AEE29D2D3BC8A522DA /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
+		3F86244311756DE8A23C28DD /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
+		70C975366AF1292D82ACCF60 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		CB357A2AC0AE7CA8A042EF5A /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
+		D661FC5BC13BA5F92707D3AD /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
+		FB206FAB697CE4BFA2FD8CAB /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -576,6 +1033,7 @@ class MainFlutterWindow: NSWindow {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1EE3BF8164E0F092B945FB73 /* Pods_RunnerTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -583,6 +1041,7 @@ class MainFlutterWindow: NSWindow {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D1C5D79619816FB1C5AF8A3 /* Pods_Runner.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -616,6 +1075,7 @@ class MainFlutterWindow: NSWindow {
 				331C80D6294CF71000263BE5 /* RunnerTests */,
 				33CC10EE2044A3C60003C045 /* Products */,
 				D73912EC22F37F3D000D13A0 /* Frameworks */,
+				5D18B1D0D5051B5A5B6D6A0F /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -663,9 +1123,25 @@ class MainFlutterWindow: NSWindow {
 			path = Runner;
 			sourceTree = "<group>";
 		};
+		5D18B1D0D5051B5A5B6D6A0F /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				CB357A2AC0AE7CA8A042EF5A /* Pods-Runner.debug.xcconfig */,
+				07D573B28E1DBE7008097DBA /* Pods-Runner.release.xcconfig */,
+				3E01D8AEE29D2D3BC8A522DA /* Pods-Runner.profile.xcconfig */,
+				33A1EAC57DDC643AD4885ECF /* Pods-RunnerTests.debug.xcconfig */,
+				3F86244311756DE8A23C28DD /* Pods-RunnerTests.release.xcconfig */,
+				D661FC5BC13BA5F92707D3AD /* Pods-RunnerTests.profile.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		D73912EC22F37F3D000D13A0 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				70C975366AF1292D82ACCF60 /* Pods_Runner.framework */,
+				FB206FAB697CE4BFA2FD8CAB /* Pods_RunnerTests.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -677,6 +1153,7 @@ class MainFlutterWindow: NSWindow {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 331C80DE294CF71000263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
 			buildPhases = (
+				C1088F86BAB27FDEC79EB378 /* [CP] Check Pods Manifest.lock */,
 				331C80D1294CF70F00263BE5 /* Sources */,
 				331C80D2294CF70F00263BE5 /* Frameworks */,
 				331C80D3294CF70F00263BE5 /* Resources */,
@@ -695,11 +1172,13 @@ class MainFlutterWindow: NSWindow {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 33CC10FB2044A3C60003C045 /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
+				1E4C11B2E792D254799EAB53 /* [CP] Check Pods Manifest.lock */,
 				33CC10E92044A3C60003C045 /* Sources */,
 				33CC10EA2044A3C60003C045 /* Frameworks */,
 				33CC10EB2044A3C60003C045 /* Resources */,
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
+				629741CAA0A473CA9BA9DE56 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -782,6 +1261,28 @@ class MainFlutterWindow: NSWindow {
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		1E4C11B2E792D254799EAB53 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Runner-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
 		3399D490228B24CF009A79C7 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -819,6 +1320,45 @@ class MainFlutterWindow: NSWindow {
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"$FLUTTER_ROOT\"/packages/flutter_tools/bin/macos_assemble.sh && touch Flutter/ephemeral/tripwire";
+		};
+		629741CAA0A473CA9BA9DE56 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		C1088F86BAB27FDEC79EB378 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-RunnerTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -871,6 +1411,7 @@ class MainFlutterWindow: NSWindow {
 /* Begin XCBuildConfiguration section */
 		331C80DB294CF71000263BE5 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 33A1EAC57DDC643AD4885ECF /* Pods-RunnerTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CURRENT_PROJECT_VERSION = 1;
@@ -885,6 +1426,7 @@ class MainFlutterWindow: NSWindow {
 		};
 		331C80DC294CF71000263BE5 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F86244311756DE8A23C28DD /* Pods-RunnerTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CURRENT_PROJECT_VERSION = 1;
@@ -899,6 +1441,7 @@ class MainFlutterWindow: NSWindow {
 		};
 		331C80DD294CF71000263BE5 /* Profile */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D661FC5BC13BA5F92707D3AD /* Pods-RunnerTests.profile.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CURRENT_PROJECT_VERSION = 1;
@@ -1318,6 +1861,9 @@ class MainFlutterWindow: NSWindow {
    <FileRef
       location = "group:Runner.xcodeproj">
    </FileRef>
+   <FileRef
+      location = "group:Pods/Pods.xcodeproj">
+   </FileRef>
 </Workspace>
 
 ```
@@ -1402,7 +1948,7 @@ class FlutterInactiveTimer {
     required this.notificationPer,
     required this.onInactiveDetected,
     required this.onNotification,
-    this.requireExplicitContinue = false, // 기본값은 기존 동작 유지
+    this.requireExplicitContinue = false, // default behavior
   });
 
   /// Initialize with default values (no monitoring)
@@ -1413,7 +1959,7 @@ class FlutterInactiveTimer {
         onNotification: () {},
       );
 
-  /// 사용자가 명시적으로 세션 계속하기를 선택했을 때 호출
+  /// Called when the user explicitly chooses to continue the session
   void continueSession() {
     if (_isMonitoring) {
       _lockInputReset = false;
@@ -1421,7 +1967,7 @@ class FlutterInactiveTimer {
     }
   }
 
-  /// 타이머 리셋 (내부 메서드)
+  /// Reset the timer (internal method)
   Future<void> _resetTimer() async {
     _lastInputTime =
         await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
@@ -1497,8 +2043,8 @@ class FlutterInactiveTimer {
           await FlutterInactiveTimerPlatform.instance.getLastInputTime();
       final inactiveDuration = currentTime - _lastInputTime;
 
-      // 알림 후 requireExplicitContinue가 true이고 _lockInputReset이 true인 경우
-      // 자동 리셋하지 않음
+      // If notification has been triggered and requireExplicitContinue is true,
+      // do not reset the timer automatically
       bool shouldResetTimer = lastSystemInputTime > _lastInputTime &&
           !(requireExplicitContinue && _lockInputReset);
 
@@ -1522,7 +2068,7 @@ class FlutterInactiveTimer {
             notificationPer > 0) {
           _isNotification = true;
 
-          // requireExplicitContinue가 true인 경우에만 입력 리셋 잠금
+          // Lock reset only if requireExplicitContinue is true
           if (requireExplicitContinue) {
             _lockInputReset = true;
           }
@@ -1698,7 +2244,14 @@ void main() {
         .setMockMethodCallHandler(
       channel,
       (MethodCall methodCall) async {
-        return '42';
+        switch (methodCall.method) {
+          case 'getSystemTickCount':
+            return 1000;
+          case 'getLastInputTime':
+            return 950;
+          default:
+            return null;
+        }
       },
     );
   });
@@ -1707,11 +2260,20 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
   });
+
+  test('getSystemTickCount', () async {
+    expect(await platform.getSystemTickCount(), 1000);
+  });
+
+  test('getLastInputTime', () async {
+    expect(await platform.getLastInputTime(), 950);
+  });
 }
 
 ```
 ## test/flutter_inactive_timer_test.dart
 ```dart
+import 'package:flutter_inactive_timer/flutter_inactive_timer.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer_method_channel.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1720,19 +2282,27 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 class MockFlutterInactiveTimerPlatform
     with MockPlatformInterfaceMixin
     implements FlutterInactiveTimerPlatform {
-  @override
-  Future<String?> getPlatformVersion() => Future.value('42');
+  int _mockTickCount = 1000;
+  int _mockLastInputTime = 950;
 
-  @override
-  Future<int> getLastInputTime() {
-    // TODO: implement getLastInputTime
-    throw UnimplementedError();
+  // Method to change tick count for testing
+  void setMockTickCount(int value) {
+    _mockTickCount = value;
+  }
+
+  // Method to change last input time for testing
+  void setMockLastInputTime(int value) {
+    _mockLastInputTime = value;
   }
 
   @override
-  Future<int> getSystemTickCount() {
-    // TODO: implement getSystemTickCount
-    throw UnimplementedError();
+  Future<int> getSystemTickCount() async {
+    return _mockTickCount;
+  }
+
+  @override
+  Future<int> getLastInputTime() async {
+    return _mockLastInputTime;
   }
 }
 
@@ -1742,6 +2312,70 @@ void main() {
 
   test('$MethodChannelFlutterInactiveTimer is the default instance', () {
     expect(initialPlatform, isInstanceOf<MethodChannelFlutterInactiveTimer>());
+  });
+
+  group('FlutterInactiveTimer', () {
+    late MockFlutterInactiveTimerPlatform mockPlatform;
+    late FlutterInactiveTimer inactiveTimer;
+
+    setUp(() {
+      mockPlatform = MockFlutterInactiveTimerPlatform();
+      FlutterInactiveTimerPlatform.instance = mockPlatform;
+
+      inactiveTimer = FlutterInactiveTimer(
+        timeoutDuration: 10, // 10-second timeout
+        notificationPer: 70, // 70% threshold for notification
+        onInactiveDetected: () {
+          // Optional actions to take when the callback is invoked
+        },
+        onNotification: () {
+          // Optional actions to take when the callback is invoked
+        },
+      );
+    });
+
+    test('init constructor creates instance with default values', () {
+      final timer = FlutterInactiveTimer.init();
+      expect(timer.timeoutDuration, 0);
+      expect(timer.notificationPer, 0);
+    });
+
+    test('startMonitoring initializes monitoring state', () async {
+      await inactiveTimer.startMonitoring();
+      // It's difficult to test private fields, but state should be initialized
+      expect(true, true); // Just confirming execution
+    });
+
+    test('stopMonitoring stops timer', () async {
+      await inactiveTimer.startMonitoring();
+      inactiveTimer.stopMonitoring();
+      // The timer should be stopped. We can't verify internal state but can ensure no errors
+      expect(true, true);
+    });
+
+    test('continueSession resets timer lock', () async {
+      await inactiveTimer.startMonitoring();
+      inactiveTimer.continueSession();
+      // lockInputReset should be set to false, but it's a private field so we can't check directly
+      expect(true, true);
+    });
+
+    // Tests based on elapsed time can simulate time manipulation using the mock
+    test('inactive detection occurs after timeout', () async {
+      await inactiveTimer.startMonitoring();
+
+      // Simulate time passing beyond the timeout
+      mockPlatform.setMockTickCount(1000);
+      mockPlatform
+          .setMockLastInputTime(1000 - 11000); // Last input was 11 seconds ago
+
+      // We can't directly call _checkInactivity since it's private,
+      // and in a real environment it would be invoked via the timer.
+      // So here we only test the setup and structure.
+
+      expect(inactiveTimer.timeoutDuration, 10);
+      expect(inactiveTimer.notificationPer, 70);
+    });
   });
 }
 

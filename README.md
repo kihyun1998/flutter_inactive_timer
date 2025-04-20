@@ -1,10 +1,10 @@
 # Flutter Inactive Timer
 
-A Flutter plugin for detecting user inactivity in desktop applications (currently Windows only, with macOS support planned). This plugin provides customizable timeout and notification thresholds, making it ideal for implementing security features like automatic logout or session timeouts.
+A Flutter plugin for detecting user inactivity in desktop applications (Windows and macOS). This plugin provides customizable timeout and notification thresholds, making it ideal for implementing security features like automatic logout or session timeouts.
 
 ## Features
  
-- 🖥️ Supports Windows platform (macOS support coming soon)
+- 🖥️ Supports Windows and macOS platforms
 - ⏱️ Customizable inactivity timeout duration
 - 🔔 Configurable notification threshold before timeout occurs
 - 🔄 Easy-to-use API to start and stop monitoring
@@ -16,7 +16,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_inactive_timer: ^1.0.0
+  flutter_inactive_timer: ^1.1.0
 ```
 
 ## Usage
@@ -108,14 +108,19 @@ void dispose() {
 
 ## Example
 
-Check the `/example` directory for a complete example application demonstrating all features.
+Check the `/example` directory for a complete example application demonstrating all features. The example includes:
+
+- Single mode demo showing basic timeout functionality
+- Multi-mode demo showing how to use multiple independent timers
+- Complete UI for configuring and testing timer settings
+- Examples for both Windows and macOS platforms
 
 ## Platform Support
 
 | Platform | Support |
 |----------|---------|
 | Windows  | ✅      |
-| macOS    | 🔜 Coming soon |
+| macOS    | ✅      |
 | Linux    | ❌      |
 | Web      | ❌      |
 | Android  | ❌      |
@@ -126,11 +131,11 @@ Check the `/example` directory for a complete example application demonstrating 
 This plugin uses platform-specific APIs to detect user activity:
 
 - On Windows, it uses the Win32 API's `GetLastInputInfo` function to track user input
+- On macOS, it uses IOKit's `HIDIdleTime` to monitor user inactivity
 - The plugin tracks mouse movements, keyboard actions, and other input events to determine user activity
 
 ## Roadmap
 
-- Add macOS support
 - Improve configuration options
 - Add support for additional platforms in the future
 
@@ -138,8 +143,9 @@ This plugin uses platform-specific APIs to detect user activity:
 
 ### Common Issues
 
-1. **Timer not triggering**: Make sure your app is running on a supported platform (currently only Windows).
+1. **Timer not triggering**: Make sure your app is running on a supported platform (Windows or macOS).
 2. **Inconsistent behavior**: Make sure `startMonitoring()` is called before expecting the timer to work.
+3. **macOS permission issues**: Some macOS environments might require additional permissions for input monitoring.
 
 ## Contributing
 

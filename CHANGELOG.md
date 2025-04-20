@@ -1,8 +1,17 @@
+## 1.1.0
+
+### macOS Support Added
+
+- Added native macOS implementation using IOKit HIDIdleTime
+- Now fully supports both Windows and macOS platforms
+- Updated platform configuration in pubspec.yaml
+- Added example code for macOS
+
 ## 1.0.0
 
 ### Initial Release
 
-- Added support for detecting user inactivity in Windows and macOS desktop applications
+- Added support for detecting user inactivity in Windows desktop applications
 - Implemented customizable timeout duration for inactivity detection
 - Added notification threshold feature to alert users before timeout occurs
 - Included callback functions for handling inactivity detection and notifications

@@ -2157,21 +2157,81 @@ abstract class FlutterInactiveTimerPlatform extends PlatformInterface {
 ```swift
 import Cocoa
 import FlutterMacOS
+import IOKit
+import IOKit.hid
 
+// Main plugin class for Flutter on macOS
 public class FlutterInactiveTimerPlugin: NSObject, FlutterPlugin {
+
+  // Register the plugin with Flutter
   public static func register(with registrar: FlutterPluginRegistrar) {
+    // Create a method channel for communication between Flutter and native macOS
     let channel = FlutterMethodChannel(name: "flutter_inactive_timer", binaryMessenger: registrar.messenger)
     let instance = FlutterInactiveTimerPlugin()
+    // Set the delegate to handle method calls from Flutter
     registrar.addMethodCallDelegate(instance, channel: channel)
   }
 
+  // Handle method calls from Flutter
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
-    case "getPlatformVersion":
-      result("macOS " + ProcessInfo.processInfo.operatingSystemVersionString)
+    case "getSystemTickCount":
+      // Return system uptime in milliseconds
+      result(getSystemUptimeInMilliseconds())
+
+    case "getLastInputTime":
+      // Return the last user input time if available
+      if let lastInput = getLastInputTime() {
+        result(lastInput)
+      } else {
+        result(FlutterError(code: "UNAVAILABLE", message: "Cannot get last input time", details: nil))
+      }
+
     default:
+      // Method not implemented
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  // Get the system uptime since last boot in milliseconds
+  private func getSystemUptimeInMilliseconds() -> UInt64 {
+    let uptime = ProcessInfo.processInfo.systemUptime
+    return UInt64(uptime * 1000)
+  }
+
+  // Get the last time the user provided input (keyboard/mouse) in milliseconds
+  private func getLastInputTime() -> UInt64? {
+    var iterator = io_iterator_t()
+    let matchingDict = IOServiceMatching("IOHIDSystem")
+
+    // Get an iterator for matching services
+    guard IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, &iterator) == KERN_SUCCESS else {
+      return nil
+    }
+
+    // Get the first matching entry
+    let entry = IOIteratorNext(iterator)
+    IOObjectRelease(iterator)
+
+    guard entry != 0 else { return nil }
+
+    var properties: Unmanaged<CFMutableDictionary>?
+
+    // Fetch the HID properties dictionary
+    guard IORegistryEntryCreateCFProperties(entry, &properties, kCFAllocatorDefault, 0) == KERN_SUCCESS,
+          let dict = properties?.takeRetainedValue() as? [String: AnyObject],
+          let hidIdleTime = dict["HIDIdleTime"] as? UInt64 else {
+      IOObjectRelease(entry)
+      return nil
+    }
+
+    IOObjectRelease(entry)
+
+    // Convert HIDIdleTime from nanoseconds to milliseconds
+    let idleMillis = hidIdleTime / 1_000_000
+
+    // Subtract idle time from system uptime to get the last input time
+    return getSystemUptimeInMilliseconds() - idleMillis
   }
 }
 
@@ -2200,23 +2260,22 @@ public class FlutterInactiveTimerPlugin: NSObject, FlutterPlugin {
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_inactive_timer'
-  s.version          = '0.0.1'
-  s.summary          = 'A new Flutter plugin project.'
+  s.version          = '1.1.0'
+  s.summary          = 'A Flutter plugin for detecting user inactivity in desktop applications.'
   s.description      = <<-DESC
-A new Flutter plugin project.
+A Flutter plugin for detecting user inactivity in desktop applications (Windows and macOS). 
+This plugin provides customizable timeout and notification thresholds, making it ideal for 
+implementing security features like automatic logout or session timeouts.
                        DESC
-  s.homepage         = 'http://example.com'
+  s.homepage         = 'https://github.com/kihyun1998/flutter_inactive_timer'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'kihyun1998' => 'https://github.com/kihyun1998' }
 
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
 
-  # If your plugin requires a privacy manifest, for example if it collects user
-  # data, update the PrivacyInfo.xcprivacy file to describe your plugin's
-  # privacy impact, and then uncomment this line. For more information,
-  # see https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
-  # s.resource_bundles = {'flutter_inactive_timer_privacy' => ['Resources/PrivacyInfo.xcprivacy']}
+  # Uncommented the privacy manifest resources since macOS might need it for input monitoring
+  s.resource_bundles = {'flutter_inactive_timer_privacy' => ['Resources/PrivacyInfo.xcprivacy']}
 
   s.dependency 'FlutterMacOS'
 
@@ -2224,7 +2283,6 @@ A new Flutter plugin project.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'
 end
-
 ```
 ## test/flutter_inactive_timer_method_channel_test.dart
 ```dart

@@ -1,6 +1,6 @@
 name: flutter_inactive_timer
 description: "A Flutter plugin for detecting user inactivity in desktop applications (Windows, macOS). Provides customizable timeout and notification thresholds."
-version: 1.1.0
+version: 1.1.1
 homepage: https://github.com/kihyun1998/flutter_inactive_timer
 repository: https://github.com/kihyun1998/flutter_inactive_timer
 issue_tracker: https://github.com/kihyun1998/flutter_inactive_timer/issues

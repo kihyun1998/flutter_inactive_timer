@@ -1,3 +1,7 @@
+## 1.1.1
+
+- update macos target version 
+
 ## 1.1.0
 
 ### macOS Support Added

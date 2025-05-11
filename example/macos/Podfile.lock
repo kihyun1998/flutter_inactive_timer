@@ -1,5 +1,5 @@
 PODS:
-  - flutter_inactive_timer (0.0.1):
+  - flutter_inactive_timer (1.1.0):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
 
@@ -14,7 +14,7 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral
 
 SPEC CHECKSUMS:
-  flutter_inactive_timer: 211686e448a1f804048eaea1f40c95d9c000fbfa
+  flutter_inactive_timer: fbc7665bc8dd7ce618870c528bf7dab3d570ce47
   FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
 
 PODFILE CHECKSUM: 236401fc2c932af29a9fcf0e97baeeb2d750d367

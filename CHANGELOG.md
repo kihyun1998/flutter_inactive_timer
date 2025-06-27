@@ -1,3 +1,7 @@
+## 1.1.2
+
+- update license
+
 ## 1.1.1
 
 - update macos target version 

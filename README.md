@@ -16,7 +16,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_inactive_timer: ^1.1.1
+  flutter_inactive_timer: ^1.1.2
 ```
 
 ## Usage

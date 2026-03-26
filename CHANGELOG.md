@@ -1,3 +1,7 @@
+## 1.1.4
+
+- Fix: ensure stopMonitoring() fully stops during async inactivity checks
+
 ## 1.1.3
 
 - update license

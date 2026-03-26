@@ -125,8 +125,12 @@ class FlutterInactiveTimer {
     try {
       final currentTime =
           await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
+      if (!_isMonitoring) return;
+
       final lastSystemInputTime =
           await FlutterInactiveTimerPlatform.instance.getLastInputTime();
+      if (!_isMonitoring) return;
+
       final inactiveDuration = currentTime - _lastInputTime;
 
       // If notification has been triggered and requireExplicitContinue is true,

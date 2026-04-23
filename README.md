@@ -7,6 +7,7 @@ A Flutter plugin for detecting user inactivity in desktop applications (Windows 
 - 🖥️ Supports Windows and macOS platforms
 - ⏱️ Customizable inactivity timeout duration
 - 🔔 Configurable notification threshold before timeout occurs
+- 🔁 `onActive` callback for reacting when the user returns from inactivity
 - 🔄 Easy-to-use API to start and stop monitoring
 - 🛡️ Option to require explicit user confirmation to continue session
 
@@ -16,7 +17,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_inactive_timer: ^1.1.4
+  flutter_inactive_timer: ^1.2.0
 ```
 
 ## Usage
@@ -38,6 +39,11 @@ final inactivityTimer = FlutterInactiveTimer(
     // Handle pre-timeout notification, e.g., show a warning dialog
     print('Warning: Session will expire soon due to inactivity.');
   },
+  onActive: () {
+    // Optional: handle the user returning after a notification was shown
+    // (e.g., dismiss the warning dialog/snackbar)
+    print('User is active again.');
+  },
 );
 
 // Start monitoring
@@ -48,6 +54,32 @@ inactivityTimer.stopMonitoring();
 ```
 
 ### Advanced Usage
+
+#### Reacting to User Return (`onActive`)
+
+`onActive` fires once when the user becomes active again **after** a notification
+has already been delivered. It lets you clean up any UI state that was put in
+place by `onNotification` (a warning banner, a dimmed overlay, a status label,
+etc.) without having to track it yourself.
+
+```dart
+final inactivityTimer = FlutterInactiveTimer(
+  timeoutDuration: 300,
+  notificationPer: 80,
+  onNotification: () => setState(() => _status = 'Almost inactive'),
+  onActive: () => setState(() => _status = 'Active'),
+  onInactiveDetected: () => setState(() => _status = 'Session expired'),
+);
+```
+
+When does it fire?
+
+- `requireExplicitContinue: false` (default): fires automatically as soon as the
+  plugin detects fresh input (bounded to a ~500ms detection latency).
+- `requireExplicitContinue: true`: fires when you call `continueSession()`.
+
+It does **not** fire if no notification was pending (for example, resetting the
+timer during normal activity will not call `onActive`).
 
 #### Explicit Continue Mode
 

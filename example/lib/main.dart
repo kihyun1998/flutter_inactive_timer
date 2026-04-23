@@ -385,6 +385,11 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
           _leftStatus = 'Almost inactive!';
         });
       },
+      onActive: () {
+        setState(() {
+          _leftStatus = 'Monitoring...';
+        });
+      },
     );
 
     // Configure right timer
@@ -400,6 +405,11 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
       onNotification: () {
         setState(() {
           _rightStatus = 'Almost inactive!';
+        });
+      },
+      onActive: () {
+        setState(() {
+          _rightStatus = 'Monitoring...';
         });
       },
     );

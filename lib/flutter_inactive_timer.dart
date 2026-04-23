@@ -17,9 +17,19 @@ class FlutterInactiveTimer {
   /// Callback that is called when notification threshold is reached
   final void Function() onNotification;
 
+  /// Callback that is called when the user becomes active again after a
+  /// notification has fired. Invoked both on detected input (when
+  /// `requireExplicitContinue` is false) and on [continueSession] calls.
+  /// Optional — existing callers can omit it.
+  final void Function()? onActive;
+
   /// If true, only explicit continue action will reset the timer after notification
   /// If false, any user activity will reset the timer (default behavior)
   final bool requireExplicitContinue;
+
+  /// Poll interval (ms) after notification when requireExplicitContinue=false,
+  /// bounding the latency between user returning and [onActive] firing.
+  static const int _postNotificationPollMs = 500;
 
   Timer? _timer;
   bool _isNotification = false;
@@ -34,6 +44,7 @@ class FlutterInactiveTimer {
     required this.notificationPer,
     required this.onInactiveDetected,
     required this.onNotification,
+    this.onActive,
     this.requireExplicitContinue = false, // default behavior
   });
 
@@ -48,8 +59,10 @@ class FlutterInactiveTimer {
   /// Called when the user explicitly chooses to continue the session
   void continueSession() {
     if (_isMonitoring) {
+      final wasNotified = _isNotification;
       _lockInputReset = false;
       _resetTimer();
+      if (wasNotified) onActive?.call();
     }
   }
 
@@ -100,9 +113,8 @@ class FlutterInactiveTimer {
       return delay;
     }
 
-    final notificationTime =
+    _notificationTime =
         (timeoutDuration * 1000 * notificationPer / 100).round();
-    _notificationTime = timeoutDuration * 1000 - notificationTime;
 
     if (remainTime <= 0) {
       return 1;
@@ -113,7 +125,15 @@ class FlutterInactiveTimer {
     } else if (!_isNotification) {
       return 1;
     } else {
-      int delay = max(remainTime, 1000);
+      // After notification:
+      //   - requireExplicitContinue=true: user input is ignored until
+      //     continueSession() fires, so polling buys nothing → single check
+      //     at timeout (floor 1s for safety).
+      //   - requireExplicitContinue=false: poll so onActive latency is
+      //     bounded by _postNotificationPollMs.
+      final int delay = requireExplicitContinue
+          ? max(remainTime, 1000)
+          : min(remainTime, _postNotificationPollMs);
       return delay;
     }
   }
@@ -139,11 +159,10 @@ class FlutterInactiveTimer {
           !(requireExplicitContinue && _lockInputReset);
 
       if (shouldResetTimer) {
-        if (_isNotification) {
-          _isNotification = false;
-        }
-
+        final wasNotified = _isNotification;
+        _isNotification = false;
         _lastInputTime = lastSystemInputTime;
+        if (wasNotified) onActive?.call();
         _scheduleNextCheck();
         return;
       }

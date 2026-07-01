@@ -18,12 +18,42 @@ class FakeIdlePlatform
   Future<int> getIdleDuration() async => nowMs() - lastInputMs;
 }
 
+/// Fake platform that throws on the next [throwsRemaining] idle reads, to
+/// exercise the shell's transient-failure recovery path.
+class FlakyIdlePlatform
+    with MockPlatformInterfaceMixin
+    implements FlutterInactiveTimerPlatform {
+  FlakyIdlePlatform(this.nowMs);
+  final int Function() nowMs;
+  int lastInputMs = 0;
+  int throwsRemaining = 0;
+
+  @override
+  Future<int> getIdleDuration() async {
+    if (throwsRemaining > 0) {
+      throwsRemaining--;
+      throw Exception('transient platform failure');
+    }
+    return nowMs() - lastInputMs;
+  }
+}
+
+/// A platform that overrides nothing, so it inherits the base's
+/// not-implemented behavior.
+class UnimplementedPlatform extends FlutterInactiveTimerPlatform
+    with MockPlatformInterfaceMixin {}
+
 void main() {
   final FlutterInactiveTimerPlatform initialPlatform =
       FlutterInactiveTimerPlatform.instance;
 
   test('$MethodChannelFlutterInactiveTimer is the default instance', () {
     expect(initialPlatform, isInstanceOf<MethodChannelFlutterInactiveTimer>());
+  });
+
+  test('platform interface getIdleDuration throws until a platform implements it',
+      () {
+    expect(UnimplementedPlatform().getIdleDuration, throwsUnimplementedError);
   });
 
   group('FlutterInactiveTimer', () {
@@ -462,6 +492,39 @@ void main() {
 
         expect(notifyCount, 0);
         expect(timeoutCount, 0);
+      });
+    });
+
+    test('a transient platform failure does not kill monitoring; it retries',
+        () {
+      fakeAsync((async) {
+        final platform = FlakyIdlePlatform(() => async.elapsed.inMilliseconds);
+        int notifyCount = 0;
+
+        final timer = FlutterInactiveTimer(
+          timeoutDuration: 10,
+          notificationPer: 10,
+          onInactiveDetected: () {},
+          onNotification: () => notifyCount++,
+          platform: platform,
+          clock: () => async.elapsed.inMilliseconds,
+        );
+
+        // The first idle read (from startMonitoring) throws. Monitoring must
+        // survive and re-arm a retry rather than silently dying.
+        platform.throwsRemaining = 1;
+        timer.startMonitoring();
+        async.flushMicrotasks();
+        expect(async.nonPeriodicTimerCount, 1,
+            reason: 'a failed check must re-arm, not abandon monitoring');
+
+        // Subsequent reads succeed; normal scheduling resumes and the
+        // notification still fires exactly once.
+        async.elapse(const Duration(seconds: 12));
+        expect(notifyCount, 1,
+            reason: 'monitoring recovered and reached the notification');
+
+        timer.stopMonitoring();
       });
     });
 

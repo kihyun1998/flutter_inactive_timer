@@ -193,8 +193,9 @@ last keyboard or mouse input — and exposes it to Dart through a single
 - On macOS, it reads IOKit's `HIDIdleTime`.
 
 The Dart side never subtracts two separate clock readings, which avoids a class
-of wraparound bugs (see `docs/adr/0001-idle-duration-channel-contract.md`). The
-scheduling and notification rules live in a pure, unit-tested `InactivityPolicy`.
+of wraparound bugs (see [ADR-0001](https://github.com/kihyun1998/flutter_inactive_timer/blob/main/docs/adr/0001-idle-duration-channel-contract.md)).
+The scheduling and notification rules live in a pure, unit-tested
+`InactivityPolicy`.
 
 ## Roadmap
 

@@ -1,5 +1,11 @@
-CODE.md
-codemd-windows-amd64.exe
-codemd-darwin-amd64
-.codeignore
+# When a .pubignore exists, pub ignores .gitignore in this directory, so the
+# generated build/tool output must be listed here explicitly.
+build/
+.dart_tool/
+coverage/
 
+# Repository tooling and development docs — not needed by package consumers.
+.github/
+docs/
+CONTEXT.md
+CLAUDE.md

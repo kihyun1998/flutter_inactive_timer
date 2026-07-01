@@ -10,16 +10,9 @@ class MethodChannelFlutterInactiveTimer extends FlutterInactiveTimerPlatform {
   final methodChannel = const MethodChannel('flutter_inactive_timer');
 
   @override
-  Future<int> getSystemTickCount() async {
-    final int tickCount =
-        await methodChannel.invokeMethod<int>('getSystemTickCount') ?? 0;
-    return tickCount;
-  }
-
-  @override
-  Future<int> getLastInputTime() async {
-    final int lastInputTime =
-        await methodChannel.invokeMethod<int>('getLastInputTime') ?? 0;
-    return lastInputTime;
+  Future<int> getIdleDuration() async {
+    final int idleMs =
+        await methodChannel.invokeMethod<int>('getIdleDuration') ?? 0;
+    return idleMs;
   }
 }

@@ -15,10 +15,8 @@ void main() {
       channel,
       (MethodCall methodCall) async {
         switch (methodCall.method) {
-          case 'getSystemTickCount':
-            return 1000;
-          case 'getLastInputTime':
-            return 950;
+          case 'getIdleDuration':
+            return 1500;
           default:
             return null;
         }
@@ -31,11 +29,7 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  test('getSystemTickCount', () async {
-    expect(await platform.getSystemTickCount(), 1000);
-  });
-
-  test('getLastInputTime', () async {
-    expect(await platform.getLastInputTime(), 950);
+  test('getIdleDuration', () async {
+    expect(await platform.getIdleDuration(), 1500);
   });
 }

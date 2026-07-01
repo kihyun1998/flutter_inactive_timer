@@ -18,16 +18,12 @@ public class FlutterInactiveTimerPlugin: NSObject, FlutterPlugin {
   // Handle method calls from Flutter
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
-    case "getSystemTickCount":
-      // Return system uptime in milliseconds
-      result(getSystemUptimeInMilliseconds())
-
-    case "getLastInputTime":
-      // Return the last user input time if available
-      if let lastInput = getLastInputTime() {
-        result(lastInput)
+    case "getIdleDuration":
+      // Return milliseconds since the last user input (see ADR-0001)
+      if let idle = getIdleMilliseconds() {
+        result(idle)
       } else {
-        result(FlutterError(code: "UNAVAILABLE", message: "Cannot get last input time", details: nil))
+        result(FlutterError(code: "UNAVAILABLE", message: "Cannot get idle duration", details: nil))
       }
 
     default:
@@ -36,14 +32,9 @@ public class FlutterInactiveTimerPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  // Get the system uptime since last boot in milliseconds
-  private func getSystemUptimeInMilliseconds() -> UInt64 {
-    let uptime = ProcessInfo.processInfo.systemUptime
-    return UInt64(uptime * 1000)
-  }
-
-  // Get the last time the user provided input (keyboard/mouse) in milliseconds
-  private func getLastInputTime() -> UInt64? {
+  // Get the milliseconds since the last keyboard/mouse input via IOKit's
+  // HIDIdleTime (which is exactly the idle duration in nanoseconds).
+  private func getIdleMilliseconds() -> UInt64? {
     var iterator = io_iterator_t()
     let matchingDict = IOServiceMatching("IOHIDSystem")
 
@@ -71,9 +62,6 @@ public class FlutterInactiveTimerPlugin: NSObject, FlutterPlugin {
     IOObjectRelease(entry)
 
     // Convert HIDIdleTime from nanoseconds to milliseconds
-    let idleMillis = hidIdleTime / 1_000_000
-
-    // Subtract idle time from system uptime to get the last input time
-    return getSystemUptimeInMilliseconds() - idleMillis
+    return hidIdleTime / 1_000_000
   }
 }

@@ -5,21 +5,17 @@ import 'package:flutter_inactive_timer/flutter_inactive_timer_platform_interface
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-/// Mock platform whose "system tick" is synced with `FakeAsync.elapsed`, so
-/// the production timer path sees time advance exactly as we elapse it.
-class MockFlutterInactiveTimerPlatform
+/// Fake platform whose idle duration is derived from a test-controlled clock:
+/// `idle = now - lastInput`. Set [nowMs] to `FakeAsync.elapsed` and move
+/// [lastInputMs] forward to simulate the user producing input at that time.
+class FakeIdlePlatform
     with MockPlatformInterfaceMixin
     implements FlutterInactiveTimerPlatform {
-  static const int baseTime = 100000;
-
-  int Function() currentElapsedMs = () => 0;
-  int lastInputElapsedMs = 0;
+  int Function() nowMs = () => 0;
+  int lastInputMs = 0;
 
   @override
-  Future<int> getSystemTickCount() async => baseTime + currentElapsedMs();
-
-  @override
-  Future<int> getLastInputTime() async => baseTime + lastInputElapsedMs;
+  Future<int> getIdleDuration() async => nowMs() - lastInputMs;
 }
 
 void main() {
@@ -31,10 +27,10 @@ void main() {
   });
 
   group('FlutterInactiveTimer', () {
-    late MockFlutterInactiveTimerPlatform mock;
+    late FakeIdlePlatform mock;
 
     setUp(() {
-      mock = MockFlutterInactiveTimerPlatform();
+      mock = FakeIdlePlatform();
       FlutterInactiveTimerPlatform.instance = mock;
     });
 
@@ -54,7 +50,7 @@ void main() {
       }) {
         int? notifyAt;
         fakeAsync((async) {
-          mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+          mock.nowMs = () => async.elapsed.inMilliseconds;
 
           final timer = FlutterInactiveTimer(
             timeoutDuration: timeoutDuration,
@@ -63,6 +59,8 @@ void main() {
             onNotification: () {
               notifyAt ??= async.elapsed.inMilliseconds;
             },
+            platform: mock,
+            clock: () => async.elapsed.inMilliseconds,
           );
 
           timer.startMonitoring();
@@ -111,11 +109,9 @@ void main() {
       });
 
       test('per=10 does NOT fire at 90% (regression: inverted semantics)', () {
-        // Before the fix this scenario fired at 9000ms because the scheduler
-        // and the firing condition disagreed on what `per` meant.
         int? notifyAt;
         fakeAsync((async) {
-          mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+          mock.nowMs = () => async.elapsed.inMilliseconds;
 
           final timer = FlutterInactiveTimer(
             timeoutDuration: 10,
@@ -124,6 +120,8 @@ void main() {
             onNotification: () {
               notifyAt ??= async.elapsed.inMilliseconds;
             },
+            platform: mock,
+            clock: () => async.elapsed.inMilliseconds,
           );
 
           timer.startMonitoring();
@@ -144,7 +142,7 @@ void main() {
       int? timeoutAt;
 
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
 
         final timer = FlutterInactiveTimer(
           timeoutDuration: 5,
@@ -153,6 +151,8 @@ void main() {
             timeoutAt ??= async.elapsed.inMilliseconds;
           },
           onNotification: () {},
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -167,7 +167,7 @@ void main() {
 
     test('user activity reschedules the notification', () {
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int notifyCount = 0;
 
         final timer = FlutterInactiveTimer(
@@ -175,16 +175,18 @@ void main() {
           notificationPer: 10, // target 1000ms of inactivity
           onInactiveDetected: () {},
           onNotification: () => notifyCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
         async.flushMicrotasks();
 
-        // User moved at 500ms. When the check fires at 1000ms it should see
-        // the newer input and reset _lastInputTime to 500ms, pushing the
-        // notification target out to 500 + 1000 = 1500ms.
+        // User moved at 500ms. When the check fires at 1000ms it should see the
+        // newer input (idle < sinceReset) and rewind the baseline to 500ms,
+        // pushing the notification target out to 500 + 1000 = 1500ms.
         async.elapse(const Duration(milliseconds: 500));
-        mock.lastInputElapsedMs = 500;
+        mock.lastInputMs = 500;
 
         async.elapse(const Duration(milliseconds: 999));
         expect(notifyCount, 0,
@@ -202,7 +204,7 @@ void main() {
         'requireExplicitContinue blocks reset after notification until '
         'continueSession()', () {
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int notifyCount = 0;
         int? timeoutAt;
 
@@ -214,6 +216,8 @@ void main() {
             timeoutAt ??= async.elapsed.inMilliseconds;
           },
           onNotification: () => notifyCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -224,7 +228,7 @@ void main() {
 
         // User activity AFTER notification — normally this resets, but with
         // requireExplicitContinue=true it should be ignored.
-        mock.lastInputElapsedMs = 2000;
+        mock.lastInputMs = 2000;
         async.elapse(const Duration(seconds: 9));
 
         expect(notifyCount, 1, reason: 'must not re-fire while locked');
@@ -234,7 +238,7 @@ void main() {
 
     test('continueSession() unlocks and restarts the cycle', () {
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int notifyCount = 0;
 
         final timer = FlutterInactiveTimer(
@@ -243,6 +247,8 @@ void main() {
           requireExplicitContinue: true,
           onInactiveDetected: () {},
           onNotification: () => notifyCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -251,7 +257,7 @@ void main() {
         async.elapse(const Duration(milliseconds: 1001));
         expect(notifyCount, 1);
 
-        // Explicit continue at 2000ms → _lastInputTime resets, next notify at
+        // Explicit continue at 2000ms → baseline resets, next notify at
         // 2000 + 1000 = 3000ms.
         async.elapse(const Duration(milliseconds: 999));
         timer.continueSession();
@@ -269,7 +275,7 @@ void main() {
 
     test('onActive fires when user returns after notification', () {
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int notifyCount = 0;
         int activeCount = 0;
         int? activeAt;
@@ -283,6 +289,8 @@ void main() {
             activeAt ??= async.elapsed.inMilliseconds;
             activeCount++;
           },
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -295,7 +303,7 @@ void main() {
 
         // User comes back at 1200ms. With 500ms polling, detection lands by
         // 1500ms at the latest.
-        mock.lastInputElapsedMs = 1200;
+        mock.lastInputMs = 1200;
         async.elapse(const Duration(milliseconds: 500));
 
         expect(activeCount, 1, reason: 'onActive must fire after user returns');
@@ -308,7 +316,7 @@ void main() {
 
     test('onActive does NOT fire when user moves before notification', () {
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int activeCount = 0;
 
         final timer = FlutterInactiveTimer(
@@ -317,6 +325,8 @@ void main() {
           onInactiveDetected: () {},
           onNotification: () {},
           onActive: () => activeCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -324,7 +334,7 @@ void main() {
 
         // Reset before notification ever fires.
         async.elapse(const Duration(seconds: 2));
-        mock.lastInputElapsedMs = 2000;
+        mock.lastInputMs = 2000;
         async.elapse(const Duration(seconds: 4));
 
         expect(activeCount, 0, reason: 'no notification → no onActive');
@@ -335,7 +345,7 @@ void main() {
 
     test('onActive fires on continueSession() after notification', () {
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int activeCount = 0;
 
         final timer = FlutterInactiveTimer(
@@ -345,6 +355,8 @@ void main() {
           onInactiveDetected: () {},
           onNotification: () {},
           onActive: () => activeCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -365,7 +377,7 @@ void main() {
     test('onActive does NOT fire on continueSession() without notification',
         () {
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int activeCount = 0;
 
         final timer = FlutterInactiveTimer(
@@ -375,6 +387,8 @@ void main() {
           onInactiveDetected: () {},
           onNotification: () {},
           onActive: () => activeCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -392,12 +406,10 @@ void main() {
     });
 
     test('post-notification polling is capped at 500ms', () {
-      // Regression test for the "reactivate latency" gap. With the old
-      // max(remainTime, 1000) scheduler, user return at t=1.2s on a
-      // timeout=10s / per=10 config would not be noticed until t=10s
-      // (an 8.8s gap). The fix bounds it to 500ms.
+      // Regression test for the "reactivate latency" gap. The fix bounds the
+      // detection of the user's return to 500ms.
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int? activeAt;
 
         final timer = FlutterInactiveTimer(
@@ -406,13 +418,15 @@ void main() {
           onInactiveDetected: () {},
           onNotification: () {},
           onActive: () => activeAt ??= async.elapsed.inMilliseconds,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
         async.flushMicrotasks();
 
         async.elapse(const Duration(milliseconds: 1001));
-        mock.lastInputElapsedMs = 1200;
+        mock.lastInputMs = 1200;
 
         async.elapse(const Duration(milliseconds: 499));
         expect(activeAt, isNotNull,
@@ -425,7 +439,7 @@ void main() {
 
     test('stopMonitoring() prevents further callbacks', () {
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int notifyCount = 0;
         int timeoutCount = 0;
 
@@ -434,6 +448,8 @@ void main() {
           notificationPer: 10,
           onInactiveDetected: () => timeoutCount++,
           onNotification: () => notifyCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -451,7 +467,7 @@ void main() {
 
     test('timeoutDuration=0 never schedules anything', () {
       fakeAsync((async) {
-        mock.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        mock.nowMs = () => async.elapsed.inMilliseconds;
         int notifyCount = 0;
         int timeoutCount = 0;
 
@@ -460,6 +476,8 @@ void main() {
           notificationPer: 50,
           onInactiveDetected: () => timeoutCount++,
           onNotification: () => notifyCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -478,13 +496,14 @@ void main() {
   // Issue #1: the timer must be usable with a platform injected through the
   // constructor, WITHOUT mutating the global FlutterInactiveTimerPlatform
   // singleton. This group deliberately never assigns
-  // FlutterInactiveTimerPlatform.instance.
+  // FlutterInactiveTimerPlatform.instance (except the precedence test, which
+  // restores it).
   group('constructor platform injection', () {
     test('uses the injected platform (no global singleton mutation)', () {
       int? notifyAt;
       fakeAsync((async) {
-        final injected = MockFlutterInactiveTimerPlatform();
-        injected.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        final injected = FakeIdlePlatform()
+          ..nowMs = () => async.elapsed.inMilliseconds;
 
         final timer = FlutterInactiveTimer(
           timeoutDuration: 10,
@@ -492,6 +511,7 @@ void main() {
           onInactiveDetected: () {},
           onNotification: () => notifyAt ??= async.elapsed.inMilliseconds,
           platform: injected,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -507,17 +527,16 @@ void main() {
       final original = FlutterInactiveTimerPlatform.instance;
       addTearDown(() => FlutterInactiveTimerPlatform.instance = original);
 
-      // Frozen global clock: if the timer ever read the global instead of the
-      // injected platform, elapsed time would stay 0 and onNotification would
-      // never fire.
-      final frozenGlobal = MockFlutterInactiveTimerPlatform();
-      frozenGlobal.currentElapsedMs = () => 0;
+      // Frozen global: idle is always 0. If the timer ever read the global
+      // instead of the injected platform, idle (0) < sinceReset would trigger a
+      // perpetual reset and the notification would never fire.
+      final frozenGlobal = FakeIdlePlatform()..nowMs = () => 0;
       FlutterInactiveTimerPlatform.instance = frozenGlobal;
 
       int? notifyAt;
       fakeAsync((async) {
-        final injected = MockFlutterInactiveTimerPlatform();
-        injected.currentElapsedMs = () => async.elapsed.inMilliseconds;
+        final injected = FakeIdlePlatform()
+          ..nowMs = () => async.elapsed.inMilliseconds;
 
         final timer = FlutterInactiveTimer(
           timeoutDuration: 10,
@@ -525,6 +544,7 @@ void main() {
           onInactiveDetected: () {},
           onNotification: () => notifyAt ??= async.elapsed.inMilliseconds,
           platform: injected,
+          clock: () => async.elapsed.inMilliseconds,
         );
 
         timer.startMonitoring();
@@ -533,7 +553,7 @@ void main() {
         timer.stopMonitoring();
       });
 
-      // Fires per the injected (advancing) clock — the frozen global was never
+      // Fires per the injected (advancing) idle — the frozen global was never
       // consulted.
       expect(notifyAt, 1000);
     });

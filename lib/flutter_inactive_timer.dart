@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter_inactive_timer/flutter_inactive_timer_platform_interface.dart';
+import 'package:flutter_inactive_timer/src/inactivity_policy.dart';
 
 class FlutterInactiveTimer {
   /// The duration of inactivity before timeout (in seconds)
@@ -27,26 +27,33 @@ class FlutterInactiveTimer {
   /// If false, any user activity will reset the timer (default behavior)
   final bool requireExplicitContinue;
 
-  /// Poll interval (ms) after notification when requireExplicitContinue=false,
-  /// bounding the latency between user returning and [onActive] firing.
-  static const int _postNotificationPollMs = 500;
-
-  /// The platform used to read system time and last input time. Injected via
-  /// the constructor so callers (and tests) can supply their own, decoupling
-  /// this timer from the global [FlutterInactiveTimerPlatform.instance].
+  /// The platform used to read the idle duration. Injected via the constructor
+  /// so callers (and tests) can supply their own, decoupling this timer from
+  /// the global [FlutterInactiveTimerPlatform.instance].
   final FlutterInactiveTimerPlatform _platform;
+
+  /// Monotonic clock (milliseconds). Injected so tests can drive it with a
+  /// virtual clock; production uses a [Stopwatch]. See ADR-0001 — the idle
+  /// duration comes from the platform, but wall-clock progress since a reset
+  /// (needed while input is locked out) comes from this clock.
+  final int Function() _now;
+
+  final InactivityPolicy _policy;
+
+  /// The value of [_now] at the last logical reset (start / continue / detected
+  /// input). "Inactivity since our reset" is `_now() - _baselineNow`.
+  int _baselineNow = 0;
 
   Timer? _timer;
   bool _isNotification = false;
-  int _lastInputTime = 0;
-  int _notificationTime = 0;
   bool _isMonitoring = false;
   bool _lockInputReset = false;
 
   /// Creates an inactive timer with required parameters.
   ///
-  /// [platform] defaults to [FlutterInactiveTimerPlatform.instance]; supply a
-  /// fake in tests to avoid mutating that global singleton.
+  /// [platform] defaults to [FlutterInactiveTimerPlatform.instance] and [clock]
+  /// to a monotonic [Stopwatch]; supply fakes in tests to avoid touching global
+  /// state and to drive time deterministically.
   FlutterInactiveTimer({
     required this.timeoutDuration,
     required this.notificationPer,
@@ -55,7 +62,11 @@ class FlutterInactiveTimer {
     this.onActive,
     this.requireExplicitContinue = false, // default behavior
     FlutterInactiveTimerPlatform? platform,
-  }) : _platform = platform ?? FlutterInactiveTimerPlatform.instance;
+    int Function()? clock,
+    InactivityPolicy policy = const InactivityPolicy(),
+  })  : _platform = platform ?? FlutterInactiveTimerPlatform.instance,
+        _now = clock ?? _defaultClock(),
+        _policy = policy;
 
   /// Initialize with default values (no monitoring)
   factory FlutterInactiveTimer.init() => FlutterInactiveTimer(
@@ -65,32 +76,27 @@ class FlutterInactiveTimer {
         onNotification: () {},
       );
 
-  /// Called when the user explicitly chooses to continue the session
-  void continueSession() {
-    if (_isMonitoring) {
-      final wasNotified = _isNotification;
-      _lockInputReset = false;
-      _resetTimer();
-      if (wasNotified) onActive?.call();
-    }
+  static int Function() _defaultClock() {
+    final stopwatch = Stopwatch()..start();
+    return () => stopwatch.elapsedMilliseconds;
   }
 
-  /// Reset the timer (internal method)
-  Future<void> _resetTimer() async {
-    _lastInputTime = await _platform.getSystemTickCount();
-    _isNotification = false;
-    _scheduleNextCheck();
+  /// Called when the user explicitly chooses to continue the session
+  void continueSession() {
+    if (!_isMonitoring || timeoutDuration == 0) return;
+    final wasNotified = _isNotification;
+    _resetBaseline(_now());
+    if (wasNotified) onActive?.call();
+    _pump();
   }
 
   /// Start monitoring for user inactivity
   Future<void> startMonitoring() async {
     _isMonitoring = true;
-    _isNotification = false;
-    _lockInputReset = false;
-    _lastInputTime = await _platform.getSystemTickCount();
+    _resetBaseline(_now());
 
     if (timeoutDuration != 0) {
-      _scheduleNextCheck();
+      await _pump();
     }
   }
 
@@ -100,98 +106,59 @@ class FlutterInactiveTimer {
     _timer?.cancel();
   }
 
-  /// Schedule the next inactivity check
-  Future<void> _scheduleNextCheck() async {
+  /// Reset the baseline and clear notification/lock state.
+  void _resetBaseline(int baselineNow) {
+    _baselineNow = baselineNow;
+    _isNotification = false;
+    _lockInputReset = false;
+  }
+
+  void _arm(int delayMs) {
     _timer?.cancel();
-    final int nextDelay = await _calculateNextCheckDelay();
-    _timer = Timer(Duration(milliseconds: nextDelay), _checkInactivity);
+    _timer = Timer(Duration(milliseconds: delayMs), _pump);
   }
 
-  /// Calculate the optimal delay until next check
-  Future<int> _calculateNextCheckDelay() async {
-    int currentTime = await _platform.getSystemTickCount();
+  InactivitySnapshot _snapshot(int idleMs) => InactivitySnapshot(
+        idleMs: idleMs,
+        sinceResetMs: _now() - _baselineNow,
+        timeoutMs: timeoutDuration * 1000,
+        notificationPer: notificationPer,
+        requireExplicitContinue: requireExplicitContinue,
+        isNotified: _isNotification,
+        isLocked: _lockInputReset,
+      );
 
-    int elapsedTime = currentTime - _lastInputTime;
-    int remainTime = timeoutDuration * 1000 - elapsedTime;
-
-    if (notificationPer == 0) {
-      int delay = remainTime > 0 ? remainTime : 1;
-      return delay;
-    }
-
-    _notificationTime =
-        (timeoutDuration * 1000 * notificationPer / 100).round();
-
-    if (remainTime <= 0) {
-      return 1;
-    } else if (elapsedTime < _notificationTime) {
-      int delay =
-          _isNotification ? remainTime : _notificationTime - elapsedTime;
-      return delay;
-    } else if (!_isNotification) {
-      return 1;
-    } else {
-      // After notification:
-      //   - requireExplicitContinue=true: user input is ignored until
-      //     continueSession() fires, so polling buys nothing → single check
-      //     at timeout (floor 1s for safety).
-      //   - requireExplicitContinue=false: poll so onActive latency is
-      //     bounded by _postNotificationPollMs.
-      final int delay = requireExplicitContinue
-          ? max(remainTime, 1000)
-          : min(remainTime, _postNotificationPollMs);
-      return delay;
-    }
-  }
-
-  /// Check if user is inactive and handle timeout or notification
-  Future<void> _checkInactivity() async {
-    if (!_isMonitoring) return;
+  /// One monitoring step: read the idle duration, ask the policy what to do,
+  /// execute the decision, and schedule the next step.
+  Future<void> _pump() async {
+    if (!_isMonitoring || timeoutDuration == 0) return;
 
     try {
-      final currentTime = await _platform.getSystemTickCount();
+      final int idleMs = await _platform.getIdleDuration();
       if (!_isMonitoring) return;
 
-      final lastSystemInputTime = await _platform.getLastInputTime();
-      if (!_isMonitoring) return;
-
-      final inactiveDuration = currentTime - _lastInputTime;
-
-      // If notification has been triggered and requireExplicitContinue is true,
-      // do not reset the timer automatically
-      bool shouldResetTimer = lastSystemInputTime > _lastInputTime &&
-          !(requireExplicitContinue && _lockInputReset);
-
-      if (shouldResetTimer) {
-        final wasNotified = _isNotification;
-        _isNotification = false;
-        _lastInputTime = lastSystemInputTime;
-        if (wasNotified) onActive?.call();
-        _scheduleNextCheck();
-        return;
-      }
-
-      if (inactiveDuration >= timeoutDuration * 1000) {
-        onInactiveDetected.call();
-        stopMonitoring();
-      } else {
-        int reachedPer = (inactiveDuration * 100 ~/ (timeoutDuration * 1000));
-        if (reachedPer >= notificationPer &&
-            !_isNotification &&
-            notificationPer > 0) {
+      final decision = _policy.evaluate(_snapshot(idleMs));
+      switch (decision) {
+        case ResetFromInput(:final delayMs, :final fireOnActive):
+          // Rewind the baseline to the real input moment so the countdown
+          // resumes from when the user actually acted, not when we noticed.
+          _resetBaseline(_now() - idleMs);
+          if (fireOnActive) onActive?.call();
+          _arm(delayMs);
+        case FireNotification(:final delayMs):
           _isNotification = true;
-
-          // Lock reset only if requireExplicitContinue is true
-          if (requireExplicitContinue) {
-            _lockInputReset = true;
-          }
-
-          onNotification.call();
-        }
-        _scheduleNextCheck();
+          if (requireExplicitContinue) _lockInputReset = true;
+          onNotification();
+          _arm(delayMs);
+        case FireInactive():
+          onInactiveDetected();
+          stopMonitoring();
+        case ScheduleNext(:final delayMs):
+          _arm(delayMs);
       }
-    } catch (e) {
-      _scheduleNextCheck();
+    } catch (_) {
+      // A transient platform failure shouldn't kill monitoring; try again.
+      if (_isMonitoring) _arm(1000);
     }
   }
 }

@@ -35,3 +35,32 @@ jobs:
 
       - name: Test
         run: flutter test
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # The gtest harness links the Flutter Windows engine + client wrapper.
+      - name: Precache Windows engine artifacts
+        run: flutter precache --windows
+
+      # Put cl/link on PATH so CMake uses MSVC regardless of the runner's VS layout.
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: cmake -S windows/test -B build/win-test -G Ninja -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build/win-test
+
+      - name: Test
+        run: ctest --test-dir build/win-test --output-on-failure

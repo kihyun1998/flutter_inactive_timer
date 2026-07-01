@@ -474,4 +474,68 @@ void main() {
       });
     });
   });
+
+  // Issue #1: the timer must be usable with a platform injected through the
+  // constructor, WITHOUT mutating the global FlutterInactiveTimerPlatform
+  // singleton. This group deliberately never assigns
+  // FlutterInactiveTimerPlatform.instance.
+  group('constructor platform injection', () {
+    test('uses the injected platform (no global singleton mutation)', () {
+      int? notifyAt;
+      fakeAsync((async) {
+        final injected = MockFlutterInactiveTimerPlatform();
+        injected.currentElapsedMs = () => async.elapsed.inMilliseconds;
+
+        final timer = FlutterInactiveTimer(
+          timeoutDuration: 10,
+          notificationPer: 10, // notify at 10% -> 1000ms
+          onInactiveDetected: () {},
+          onNotification: () => notifyAt ??= async.elapsed.inMilliseconds,
+          platform: injected,
+        );
+
+        timer.startMonitoring();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 10));
+        timer.stopMonitoring();
+      });
+
+      expect(notifyAt, 1000);
+    });
+
+    test('injected platform takes precedence over the global singleton', () {
+      final original = FlutterInactiveTimerPlatform.instance;
+      addTearDown(() => FlutterInactiveTimerPlatform.instance = original);
+
+      // Frozen global clock: if the timer ever read the global instead of the
+      // injected platform, elapsed time would stay 0 and onNotification would
+      // never fire.
+      final frozenGlobal = MockFlutterInactiveTimerPlatform();
+      frozenGlobal.currentElapsedMs = () => 0;
+      FlutterInactiveTimerPlatform.instance = frozenGlobal;
+
+      int? notifyAt;
+      fakeAsync((async) {
+        final injected = MockFlutterInactiveTimerPlatform();
+        injected.currentElapsedMs = () => async.elapsed.inMilliseconds;
+
+        final timer = FlutterInactiveTimer(
+          timeoutDuration: 10,
+          notificationPer: 10,
+          onInactiveDetected: () {},
+          onNotification: () => notifyAt ??= async.elapsed.inMilliseconds,
+          platform: injected,
+        );
+
+        timer.startMonitoring();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 10));
+        timer.stopMonitoring();
+      });
+
+      // Fires per the injected (advancing) clock — the frozen global was never
+      // consulted.
+      expect(notifyAt, 1000);
+    });
+  });
 }

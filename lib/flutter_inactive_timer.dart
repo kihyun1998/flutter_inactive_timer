@@ -31,6 +31,11 @@ class FlutterInactiveTimer {
   /// bounding the latency between user returning and [onActive] firing.
   static const int _postNotificationPollMs = 500;
 
+  /// The platform used to read system time and last input time. Injected via
+  /// the constructor so callers (and tests) can supply their own, decoupling
+  /// this timer from the global [FlutterInactiveTimerPlatform.instance].
+  final FlutterInactiveTimerPlatform _platform;
+
   Timer? _timer;
   bool _isNotification = false;
   int _lastInputTime = 0;
@@ -38,7 +43,10 @@ class FlutterInactiveTimer {
   bool _isMonitoring = false;
   bool _lockInputReset = false;
 
-  /// Creates an inactive timer with required parameters
+  /// Creates an inactive timer with required parameters.
+  ///
+  /// [platform] defaults to [FlutterInactiveTimerPlatform.instance]; supply a
+  /// fake in tests to avoid mutating that global singleton.
   FlutterInactiveTimer({
     required this.timeoutDuration,
     required this.notificationPer,
@@ -46,7 +54,8 @@ class FlutterInactiveTimer {
     required this.onNotification,
     this.onActive,
     this.requireExplicitContinue = false, // default behavior
-  });
+    FlutterInactiveTimerPlatform? platform,
+  }) : _platform = platform ?? FlutterInactiveTimerPlatform.instance;
 
   /// Initialize with default values (no monitoring)
   factory FlutterInactiveTimer.init() => FlutterInactiveTimer(
@@ -68,8 +77,7 @@ class FlutterInactiveTimer {
 
   /// Reset the timer (internal method)
   Future<void> _resetTimer() async {
-    _lastInputTime =
-        await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
+    _lastInputTime = await _platform.getSystemTickCount();
     _isNotification = false;
     _scheduleNextCheck();
   }
@@ -79,8 +87,7 @@ class FlutterInactiveTimer {
     _isMonitoring = true;
     _isNotification = false;
     _lockInputReset = false;
-    _lastInputTime =
-        await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
+    _lastInputTime = await _platform.getSystemTickCount();
 
     if (timeoutDuration != 0) {
       _scheduleNextCheck();
@@ -102,8 +109,7 @@ class FlutterInactiveTimer {
 
   /// Calculate the optimal delay until next check
   Future<int> _calculateNextCheckDelay() async {
-    int currentTime =
-        await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
+    int currentTime = await _platform.getSystemTickCount();
 
     int elapsedTime = currentTime - _lastInputTime;
     int remainTime = timeoutDuration * 1000 - elapsedTime;
@@ -143,12 +149,10 @@ class FlutterInactiveTimer {
     if (!_isMonitoring) return;
 
     try {
-      final currentTime =
-          await FlutterInactiveTimerPlatform.instance.getSystemTickCount();
+      final currentTime = await _platform.getSystemTickCount();
       if (!_isMonitoring) return;
 
-      final lastSystemInputTime =
-          await FlutterInactiveTimerPlatform.instance.getLastInputTime();
+      final lastSystemInputTime = await _platform.getLastInputTime();
       if (!_isMonitoring) return;
 
       final inactiveDuration = currentTime - _lastInputTime;

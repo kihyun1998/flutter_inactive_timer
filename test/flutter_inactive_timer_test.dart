@@ -51,7 +51,8 @@ void main() {
     expect(initialPlatform, isInstanceOf<MethodChannelFlutterInactiveTimer>());
   });
 
-  test('platform interface getIdleDuration throws until a platform implements it',
+  test(
+      'platform interface getIdleDuration throws until a platform implements it',
       () {
     expect(UnimplementedPlatform().getIdleDuration, throwsUnimplementedError);
   });

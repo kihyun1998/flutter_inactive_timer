@@ -8,7 +8,8 @@ A Flutter plugin for detecting user inactivity in desktop applications (Windows 
 - ⏱️ Customizable inactivity timeout duration
 - 🔔 Configurable notification threshold before timeout occurs
 - 🔁 `onActive` callback for reacting when the user returns from inactivity
-- 🔄 Easy-to-use API to start and stop monitoring
+- 🔄 Easy-to-use API to start, stop, and dispose monitoring
+- 🧹 `dispose()` for deterministic teardown (no leaked timers)
 - 🛡️ Option to require explicit user confirmation to continue session
 
 ## Installation
@@ -17,8 +18,10 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_inactive_timer: ^1.2.0
+  flutter_inactive_timer: ^2.0.0
 ```
+
+> **Upgrading from 1.x?** See [Migrating to 2.0.0](#migrating-to-200) below.
 
 ## Usage
 
@@ -49,9 +52,17 @@ final inactivityTimer = FlutterInactiveTimer(
 // Start monitoring
 await inactivityTimer.startMonitoring();
 
-// Stop monitoring when no longer needed
+// Pause monitoring (can be resumed later with startMonitoring())
 inactivityTimer.stopMonitoring();
+
+// Permanently tear down when you're done with the instance
+inactivityTimer.dispose();
 ```
+
+> `stopMonitoring()` is a **pause** — you can call `startMonitoring()` again.
+> `dispose()` is **permanent** — it cancels the timer and releases the instance
+> so it can be garbage collected; a disposed timer cannot be restarted. Always
+> `dispose()` from your widget's `State.dispose`.
 
 ### Advanced Usage
 
@@ -121,7 +132,9 @@ void showWarningDialog() {
 
 ### Lifecycle Management
 
-It's recommended to start/stop monitoring based on your app's lifecycle:
+Tie the timer to your widget's lifecycle. Use `dispose()` (not just
+`stopMonitoring()`) in `State.dispose` so the recurring timer doesn't keep the
+instance — and any state its callbacks capture — alive:
 
 ```dart
 @override
@@ -133,8 +146,19 @@ void initState() {
 
 @override
 void dispose() {
-  inactivityTimer.stopMonitoring();
+  inactivityTimer.dispose(); // permanent teardown; releases the timer
   super.dispose();
+}
+```
+
+If you rebuild the timer with new settings, `dispose()` the old instance before
+replacing it so its timer callback stops holding the previous object:
+
+```dart
+void reconfigure() {
+  inactivityTimer.dispose();
+  inactivityTimer = FlutterInactiveTimer(/* new settings */);
+  inactivityTimer.startMonitoring();
 }
 ```
 
@@ -160,11 +184,17 @@ Check the `/example` directory for a complete example application demonstrating 
 
 ## How It Works
 
-This plugin uses platform-specific APIs to detect user activity:
+Each platform computes an **idle duration** — the milliseconds since the user's
+last keyboard or mouse input — and exposes it to Dart through a single
+`getIdleDuration()` method channel call:
 
-- On Windows, it uses the Win32 API's `GetLastInputInfo` function to track user input
-- On macOS, it uses IOKit's `HIDIdleTime` to monitor user inactivity
-- The plugin tracks mouse movements, keyboard actions, and other input events to determine user activity
+- On Windows, it derives idle time from the Win32 `GetLastInputInfo` and
+  `GetTickCount64` APIs.
+- On macOS, it reads IOKit's `HIDIdleTime`.
+
+The Dart side never subtracts two separate clock readings, which avoids a class
+of wraparound bugs (see `docs/adr/0001-idle-duration-channel-contract.md`). The
+scheduling and notification rules live in a pure, unit-tested `InactivityPolicy`.
 
 ## Roadmap
 
@@ -178,6 +208,19 @@ This plugin uses platform-specific APIs to detect user activity:
 1. **Timer not triggering**: Make sure your app is running on a supported platform (Windows or macOS).
 2. **Inconsistent behavior**: Make sure `startMonitoring()` is called before expecting the timer to work.
 3. **macOS permission issues**: Some macOS environments might require additional permissions for input monitoring.
+
+## Migrating to 2.0.0
+
+`2.0.0` is a behavior- and API-compatible upgrade **for typical app usage** —
+the `FlutterInactiveTimer` constructor and its callbacks are unchanged. Two
+things to know:
+
+- **Recommended:** switch `State.dispose` from `stopMonitoring()` to
+  `dispose()` (see [Lifecycle Management](#lifecycle-management)). `dispose()`
+  is the new, permanent teardown that prevents leaked timers.
+- **Only if you wrote a custom platform implementation:** the method channel
+  contract changed. Implement `getIdleDuration()` (milliseconds since last
+  input) instead of the old `getSystemTickCount()` + `getLastInputTime()` pair.
 
 ## Contributing
 

@@ -48,6 +48,7 @@ class FlutterInactiveTimer {
   bool _isNotification = false;
   bool _isMonitoring = false;
   bool _lockInputReset = false;
+  bool _disposed = false;
 
   /// Creates an inactive timer with required parameters.
   ///
@@ -83,7 +84,7 @@ class FlutterInactiveTimer {
 
   /// Called when the user explicitly chooses to continue the session
   void continueSession() {
-    if (!_isMonitoring || timeoutDuration == 0) return;
+    if (_disposed || !_isMonitoring || timeoutDuration == 0) return;
     final wasNotified = _isNotification;
     _resetBaseline(_now());
     if (wasNotified) onActive?.call();
@@ -92,6 +93,7 @@ class FlutterInactiveTimer {
 
   /// Start monitoring for user inactivity
   Future<void> startMonitoring() async {
+    if (_disposed) return;
     _isMonitoring = true;
     _resetBaseline(_now());
 
@@ -100,10 +102,26 @@ class FlutterInactiveTimer {
     }
   }
 
-  /// Stop monitoring for user inactivity
+  /// Stop monitoring for user inactivity.
+  ///
+  /// This is a *pause*: monitoring can be resumed later with
+  /// [startMonitoring]. To permanently tear the timer down, use [dispose].
   void stopMonitoring() {
     _isMonitoring = false;
     _timer?.cancel();
+  }
+
+  /// Permanently tear down this timer: cancel the active timer and release its
+  /// hold on this instance so it (and its callbacks) can be garbage collected.
+  ///
+  /// Unlike [stopMonitoring] (a pause), a disposed timer cannot be restarted —
+  /// [startMonitoring] and [continueSession] become no-ops. Safe to call more
+  /// than once. Call this from your widget's `State.dispose`.
+  void dispose() {
+    _disposed = true;
+    _isMonitoring = false;
+    _timer?.cancel();
+    _timer = null;
   }
 
   /// Reset the baseline and clear notification/lock state.

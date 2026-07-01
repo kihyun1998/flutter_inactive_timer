@@ -465,6 +465,65 @@ void main() {
       });
     });
 
+    test('dispose() cancels the timer and prevents further callbacks', () {
+      fakeAsync((async) {
+        mock.nowMs = () => async.elapsed.inMilliseconds;
+        int notifyCount = 0;
+        int timeoutCount = 0;
+
+        final timer = FlutterInactiveTimer(
+          timeoutDuration: 10,
+          notificationPer: 10,
+          onInactiveDetected: () => timeoutCount++,
+          onNotification: () => notifyCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
+        );
+
+        timer.startMonitoring();
+        async.flushMicrotasks();
+
+        async.elapse(const Duration(milliseconds: 500));
+        timer.dispose();
+
+        async.elapse(const Duration(seconds: 30));
+
+        expect(notifyCount, 0);
+        expect(timeoutCount, 0);
+      });
+    });
+
+    test('startMonitoring() after dispose() is a no-op', () {
+      fakeAsync((async) {
+        mock.nowMs = () => async.elapsed.inMilliseconds;
+        int notifyCount = 0;
+
+        final timer = FlutterInactiveTimer(
+          timeoutDuration: 10,
+          notificationPer: 10,
+          onInactiveDetected: () {},
+          onNotification: () => notifyCount++,
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
+        );
+
+        timer.dispose();
+        timer.startMonitoring();
+        async.flushMicrotasks();
+
+        async.elapse(const Duration(seconds: 10));
+
+        expect(notifyCount, 0,
+            reason: 'a disposed timer must not resume monitoring');
+      });
+    });
+
+    test('dispose() is idempotent', () {
+      final timer = FlutterInactiveTimer.init();
+      expect(timer.dispose, returnsNormally);
+      expect(timer.dispose, returnsNormally);
+    });
+
     test('timeoutDuration=0 never schedules anything', () {
       fakeAsync((async) {
         mock.nowMs = () => async.elapsed.inMilliseconds;

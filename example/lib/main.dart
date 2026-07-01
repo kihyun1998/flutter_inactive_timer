@@ -74,6 +74,9 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
   }
 
   void _setupInactivityTimer() {
+    // Dispose the previous timer before replacing it so its timer callback
+    // doesn't keep the old instance alive.
+    _inactivityTimer?.dispose();
     _inactivityTimer = FlutterInactiveTimer(
       timeoutDuration: _timeoutDuration,
       notificationPer: _notificationPercent,
@@ -335,8 +338,8 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
 
   @override
   void dispose() {
-    // Clean up
-    _inactivityTimer?.stopMonitoring();
+    // Permanently tear down the timer so it can be garbage collected.
+    _inactivityTimer?.dispose();
     super.dispose();
   }
 }
@@ -370,6 +373,10 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
   }
 
   void _setupTimers() {
+    // Dispose any previous timers before replacing them.
+    _leftTimer?.dispose();
+    _rightTimer?.dispose();
+
     // Configure left timer
     _leftTimer = FlutterInactiveTimer(
       timeoutDuration: _leftTimeoutDuration,
@@ -714,8 +721,8 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
 
   @override
   void dispose() {
-    _leftTimer?.stopMonitoring();
-    _rightTimer?.stopMonitoring();
+    _leftTimer?.dispose();
+    _rightTimer?.dispose();
     super.dispose();
   }
 }

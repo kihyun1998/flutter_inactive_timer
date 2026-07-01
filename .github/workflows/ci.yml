@@ -64,3 +64,30 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build/win-test --output-on-failure
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # Must build first, or the generated Flutter/ephemeral/*.xcfilelist files
+      # are missing and the Xcode build fails.
+      - name: Build macOS app
+        run: flutter build macos --debug
+        working-directory: example
+
+      - name: Run XCTest
+        working-directory: example
+        run: |
+          xcodebuild test \
+            -workspace macos/Runner.xcworkspace \
+            -scheme Runner \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO

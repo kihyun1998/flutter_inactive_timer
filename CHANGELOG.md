@@ -4,6 +4,10 @@
 
 - The native method channel now exposes a single `getIdleDuration()` method (milliseconds since the last user input) in place of the previous `getSystemTickCount()` + `getLastInputTime()` pair. This removes a Windows bug where the two calls used different clock widths (64-bit `GetTickCount64` vs 32-bit `GetLastInputInfo`), producing incorrect inactivity after ~49.7 days of uptime. See ADR-0001. Custom `FlutterInactiveTimerPlatform` implementations must now implement `getIdleDuration()`.
 
+### Features
+
+- Added `FlutterInactiveTimer.dispose()` for deterministic teardown: it cancels the active timer and releases the instance so it (and its callbacks) can be garbage collected. Unlike `stopMonitoring()` (a resumable pause), a disposed timer cannot be restarted. Call it from your widget's `State.dispose`.
+
 ### Internal
 
 - Extracted the scheduling and notification logic into a pure, side-effect-free `InactivityPolicy` (with a sealed `InactivityDecision`), making the timing rules unit-testable without mocking timers or the platform channel. `FlutterInactiveTimer` is now a thin shell over it.

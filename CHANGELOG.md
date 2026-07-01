@@ -12,6 +12,7 @@
 
 - Extracted the scheduling and notification logic into a pure, side-effect-free `InactivityPolicy` (with a sealed `InactivityDecision`), making the timing rules unit-testable without mocking timers or the platform channel. `FlutterInactiveTimer` is now a thin shell over it.
 - `FlutterInactiveTimer` gained optional `platform` and `clock` constructor parameters for dependency injection in tests; production defaults are unchanged.
+- Hardened the scheduling loop with a generation guard so an in-flight check that is superseded by `stopMonitoring`/`startMonitoring`/`continueSession`/`dispose` cannot arm a stale timer. Guarantees at most one live timer under overlapping calls (regression-tested).
 
 ## 1.2.0
 

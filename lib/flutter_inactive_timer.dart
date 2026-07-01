@@ -50,6 +50,12 @@ class FlutterInactiveTimer {
   bool _lockInputReset = false;
   bool _disposed = false;
 
+  /// Bumped whenever the current schedule is invalidated (start / stop /
+  /// continue / dispose). A `_pump` that was already in flight across its
+  /// `await` when the generation changed aborts instead of arming a stale
+  /// timer, guaranteeing at most one live timer even under overlapping calls.
+  int _generation = 0;
+
   /// Creates an inactive timer with required parameters.
   ///
   /// [platform] defaults to [FlutterInactiveTimerPlatform.instance] and [clock]
@@ -85,6 +91,7 @@ class FlutterInactiveTimer {
   /// Called when the user explicitly chooses to continue the session
   void continueSession() {
     if (_disposed || !_isMonitoring || timeoutDuration == 0) return;
+    _generation++;
     final wasNotified = _isNotification;
     _resetBaseline(_now());
     if (wasNotified) onActive?.call();
@@ -94,6 +101,7 @@ class FlutterInactiveTimer {
   /// Start monitoring for user inactivity
   Future<void> startMonitoring() async {
     if (_disposed) return;
+    _generation++;
     _isMonitoring = true;
     _resetBaseline(_now());
 
@@ -108,6 +116,7 @@ class FlutterInactiveTimer {
   /// [startMonitoring]. To permanently tear the timer down, use [dispose].
   void stopMonitoring() {
     _isMonitoring = false;
+    _generation++;
     _timer?.cancel();
   }
 
@@ -120,6 +129,7 @@ class FlutterInactiveTimer {
   void dispose() {
     _disposed = true;
     _isMonitoring = false;
+    _generation++;
     _timer?.cancel();
     _timer = null;
   }
@@ -150,10 +160,14 @@ class FlutterInactiveTimer {
   /// execute the decision, and schedule the next step.
   Future<void> _pump() async {
     if (!_isMonitoring || timeoutDuration == 0) return;
+    final int gen = _generation;
 
     try {
       final int idleMs = await _platform.getIdleDuration();
-      if (!_isMonitoring) return;
+      // A stop / start / continue / dispose happened while we were awaiting:
+      // this check belongs to a superseded schedule, so drop it rather than
+      // arm a stale timer.
+      if (gen != _generation || !_isMonitoring) return;
 
       final decision = _policy.evaluate(_snapshot(idleMs));
       switch (decision) {
@@ -175,8 +189,9 @@ class FlutterInactiveTimer {
           _arm(delayMs);
       }
     } catch (_) {
-      // A transient platform failure shouldn't kill monitoring; try again.
-      if (_isMonitoring) _arm(1000);
+      // A transient platform failure shouldn't kill monitoring; try again —
+      // unless this check was superseded while awaiting.
+      if (gen == _generation && _isMonitoring) _arm(1000);
     }
   }
 }

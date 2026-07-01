@@ -141,6 +141,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
     if (_inactivityTimer == null) return;
 
     await _inactivityTimer!.startMonitoring();
+    if (!mounted) return;
 
     setState(() {
       _status = 'Monitoring active';

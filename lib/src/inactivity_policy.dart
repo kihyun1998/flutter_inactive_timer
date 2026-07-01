@@ -111,7 +111,9 @@ class InactivityPolicy {
 
     final notifyTime = (s.timeoutMs * s.notificationPer / 100).round();
     if (remain <= 0) return 1;
-    if (effective < notifyTime) return isNotified ? remain : notifyTime - effective;
+    if (effective < notifyTime) {
+      return isNotified ? remain : notifyTime - effective;
+    }
     if (!isNotified) return 1;
     return s.requireExplicitContinue ? max(remain, 1000) : min(remain, 500);
   }

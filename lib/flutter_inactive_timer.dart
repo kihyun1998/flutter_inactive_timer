@@ -2,14 +2,18 @@ import 'dart:async';
 
 import 'package:flutter_inactive_timer/flutter_inactive_timer_platform_interface.dart';
 import 'package:flutter_inactive_timer/src/inactivity_policy.dart';
+import 'package:flutter_inactive_timer/src/notification_trigger.dart';
+
+export 'package:flutter_inactive_timer/src/notification_trigger.dart';
 
 class FlutterInactiveTimer {
-  /// The duration of inactivity before timeout (in seconds)
-  final int timeoutDuration;
+  /// The duration of inactivity before timeout.
+  final Duration timeoutDuration;
 
-  /// Percentage of timeout duration when notification should trigger (0-100)
-  /// If set to 0, no notification will be triggered
-  final int notificationPer;
+  /// When the notification fires, relative to the timeout — either a
+  /// percentage of it ([NotifyAtPercent]) or a fixed lead time before it
+  /// ([NotifyBefore]). `null` means no notification: only the timeout fires.
+  final NotificationTrigger? notification;
 
   /// Callback that is called when inactivity timeout is reached
   final void Function() onInactiveDetected;
@@ -40,6 +44,11 @@ class FlutterInactiveTimer {
 
   final InactivityPolicy _policy;
 
+  /// Absolute inactivity offset (ms) at which the notification fires, or `null`
+  /// for no notification. Resolved once from [notification] and
+  /// [timeoutDuration] so the policy stays agnostic to the trigger kind.
+  final int? _notifyAtMs;
+
   /// The value of [_now] at the last logical reset (start / continue / detected
   /// input). "Inactivity since our reset" is `_now() - _baselineNow`.
   int _baselineNow = 0;
@@ -56,14 +65,17 @@ class FlutterInactiveTimer {
   /// timer, guaranteeing at most one live timer even under overlapping calls.
   int _generation = 0;
 
-  /// Creates an inactive timer with required parameters.
+  /// Creates an inactive timer.
+  ///
+  /// [notification] defaults to `null` — no Notification, only the timeout
+  /// fires. Supply [NotifyAtPercent] or [NotifyBefore] to warn before it.
   ///
   /// [platform] defaults to [FlutterInactiveTimerPlatform.instance] and [clock]
   /// to a monotonic [Stopwatch]; supply fakes in tests to avoid touching global
   /// state and to drive time deterministically.
   FlutterInactiveTimer({
     required this.timeoutDuration,
-    required this.notificationPer,
+    this.notification,
     required this.onInactiveDetected,
     required this.onNotification,
     this.onActive,
@@ -71,17 +83,45 @@ class FlutterInactiveTimer {
     FlutterInactiveTimerPlatform? platform,
     int Function()? clock,
     InactivityPolicy policy = const InactivityPolicy(),
-  })  : _platform = platform ?? FlutterInactiveTimerPlatform.instance,
+  })  : assert(
+          notification is! NotifyAtPercent ||
+              (notification.percent >= 0 && notification.percent <= 100),
+          'NotifyAtPercent.percent must be in the range 0..100',
+        ),
+        assert(
+          notification is! NotifyBefore ||
+              (notification.before >= Duration.zero &&
+                  notification.before < timeoutDuration),
+          'NotifyBefore.before must be >= 0 and shorter than timeoutDuration',
+        ),
+        _platform = platform ?? FlutterInactiveTimerPlatform.instance,
         _now = clock ?? _defaultClock(),
-        _policy = policy;
+        _policy = policy,
+        _notifyAtMs =
+            _resolveNotifyAtMs(notification, timeoutDuration.inMilliseconds);
 
   /// Initialize with default values (no monitoring)
   factory FlutterInactiveTimer.init() => FlutterInactiveTimer(
-        notificationPer: 0,
-        timeoutDuration: 0,
+        notification: null,
+        timeoutDuration: Duration.zero,
         onInactiveDetected: () {},
         onNotification: () {},
       );
+
+  /// Resolves a [NotificationTrigger] to the absolute inactivity offset (ms) at
+  /// which the notification should fire, or `null` for no notification.
+  static int? _resolveNotifyAtMs(NotificationTrigger? trigger, int timeoutMs) {
+    switch (trigger) {
+      case null:
+        return null;
+      case NotifyAtPercent(:final percent):
+        return timeoutMs * percent ~/ 100;
+      case NotifyBefore(:final before):
+        // A lead time >= the timeout has no valid firing point inside the
+        // window; clamp so it fires immediately when monitoring starts.
+        return (timeoutMs - before.inMilliseconds).clamp(0, timeoutMs);
+    }
+  }
 
   static int Function() _defaultClock() {
     final stopwatch = Stopwatch()..start();
@@ -90,7 +130,7 @@ class FlutterInactiveTimer {
 
   /// Called when the user explicitly chooses to continue the session
   void continueSession() {
-    if (_disposed || !_isMonitoring || timeoutDuration == 0) return;
+    if (_disposed || !_isMonitoring || timeoutDuration == Duration.zero) return;
     _generation++;
     final wasNotified = _isNotification;
     _resetBaseline(_now());
@@ -105,7 +145,7 @@ class FlutterInactiveTimer {
     _isMonitoring = true;
     _resetBaseline(_now());
 
-    if (timeoutDuration != 0) {
+    if (timeoutDuration != Duration.zero) {
       await _pump();
     }
   }
@@ -149,8 +189,8 @@ class FlutterInactiveTimer {
   InactivitySnapshot _snapshot(int idleMs) => InactivitySnapshot(
         idleMs: idleMs,
         sinceResetMs: _now() - _baselineNow,
-        timeoutMs: timeoutDuration * 1000,
-        notificationPer: notificationPer,
+        timeoutMs: timeoutDuration.inMilliseconds,
+        notifyAtMs: _notifyAtMs,
         requireExplicitContinue: requireExplicitContinue,
         isNotified: _isNotification,
         isLocked: _lockInputReset,
@@ -159,7 +199,7 @@ class FlutterInactiveTimer {
   /// One monitoring step: read the idle duration, ask the policy what to do,
   /// execute the decision, and schedule the next step.
   Future<void> _pump() async {
-    if (!_isMonitoring || timeoutDuration == 0) return;
+    if (!_isMonitoring || timeoutDuration == Duration.zero) return;
     final int gen = _generation;
 
     try {

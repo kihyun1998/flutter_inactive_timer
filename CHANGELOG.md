@@ -1,3 +1,40 @@
+## 3.0.0
+
+### Breaking
+
+- The Notification's timing is now a `NotificationTrigger` passed as
+  `notification:`, replacing the `notificationPer` integer. It is a sealed type
+  with two kinds:
+  - `NotifyAtPercent(int percent)` — fire at `percent`% of the timeout (the old
+    `notificationPer` behavior).
+  - `NotifyBefore(Duration before)` — fire a fixed lead time before the timeout,
+    independent of its length (new).
+
+  `notification` is optional; `null` (the default) means no Notification, only
+  the timeout fires — replacing the old `notificationPer: 0`. See ADR-0002.
+- `timeoutDuration` is now a `Duration` instead of an `int` number of seconds,
+  so the whole API speaks one time type.
+
+  Migration:
+  ```dart
+  // 2.x
+  FlutterInactiveTimer(timeoutDuration: 60, notificationPer: 50, ...);
+  // 3.0.0
+  FlutterInactiveTimer(
+    timeoutDuration: Duration(seconds: 60),
+    notification: NotifyAtPercent(50),
+    ...,
+  );
+  ```
+
+### Features
+
+- `NotifyBefore(Duration)` schedules the Notification a fixed lead time before
+  the timeout (e.g. `NotifyBefore(Duration(seconds: 120))` on a 5-minute timeout
+  fires at 3 minutes). `before` must be `>= 0` and shorter than the timeout
+  (asserted in debug); a value `>=` the timeout safely clamps to firing at
+  monitoring start.
+
 ## 2.0.0
 
 ### Breaking

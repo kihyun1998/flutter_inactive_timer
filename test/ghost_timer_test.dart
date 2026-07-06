@@ -43,8 +43,8 @@ void main() {
       int notifyCount = 0;
 
       final timer = FlutterInactiveTimer(
-        timeoutDuration: 10,
-        notificationPer: 10, // notify at 1000ms
+        timeoutDuration: const Duration(seconds: 10),
+        notification: const NotifyAtPercent(10), // notify at 1000ms
         onInactiveDetected: () {},
         onNotification: () => notifyCount++,
         platform: gated,
@@ -84,8 +84,8 @@ void main() {
       int notifyCount = 0;
 
       final timer = FlutterInactiveTimer(
-        timeoutDuration: 10,
-        notificationPer: 10,
+        timeoutDuration: const Duration(seconds: 10),
+        notification: const NotifyAtPercent(10),
         onInactiveDetected: () {},
         onNotification: () => notifyCount++,
         platform: gated,
@@ -123,8 +123,8 @@ void main() {
       int timeoutCount = 0;
 
       final timer = FlutterInactiveTimer(
-        timeoutDuration: 10,
-        notificationPer: 10,
+        timeoutDuration: const Duration(seconds: 10),
+        notification: const NotifyAtPercent(10),
         onInactiveDetected: () => timeoutCount++,
         onNotification: () => notifyCount++,
         platform: gated,

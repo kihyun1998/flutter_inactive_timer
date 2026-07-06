@@ -78,8 +78,10 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
     // doesn't keep the old instance alive.
     _inactivityTimer?.dispose();
     _inactivityTimer = FlutterInactiveTimer(
-      timeoutDuration: _timeoutDuration,
-      notificationPer: _notificationPercent,
+      timeoutDuration: Duration(seconds: _timeoutDuration),
+      notification: _notificationPercent == 0
+          ? null
+          : NotifyAtPercent(_notificationPercent),
       onInactiveDetected: _handleInactiveDetected,
       onNotification: _handleNotification,
       requireExplicitContinue: _requireExplicitContinue,
@@ -380,8 +382,10 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
 
     // Configure left timer
     _leftTimer = FlutterInactiveTimer(
-      timeoutDuration: _leftTimeoutDuration,
-      notificationPer: _leftNotificationPercent,
+      timeoutDuration: Duration(seconds: _leftTimeoutDuration),
+      notification: _leftNotificationPercent == 0
+          ? null
+          : NotifyAtPercent(_leftNotificationPercent),
       onInactiveDetected: () {
         setState(() {
           _leftStatus = 'INACTIVE DETECTED!';
@@ -402,8 +406,10 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
 
     // Configure right timer
     _rightTimer = FlutterInactiveTimer(
-      timeoutDuration: _rightTimeoutDuration,
-      notificationPer: _rightNotificationPercent,
+      timeoutDuration: Duration(seconds: _rightTimeoutDuration),
+      notification: _rightNotificationPercent == 0
+          ? null
+          : NotifyAtPercent(_rightNotificationPercent),
       onInactiveDetected: () {
         setState(() {
           _rightStatus = 'INACTIVE DETECTED!';

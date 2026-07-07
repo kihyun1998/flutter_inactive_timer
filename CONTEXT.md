@@ -12,8 +12,12 @@ The terminal state reached when the user has produced no input for the full time
 _Avoid_: idle, timed-out
 
 **Notification**:
-The warning fired once when inactivity crosses a configured percentage of the timeout, before reaching Inactive. Fires `onNotification`.
+The warning fired once when inactivity crosses the configured NotificationTrigger, before reaching Inactive. Fires `onNotification`.
 _Avoid_: alert, warning
+
+**NotificationTrigger**:
+When the Notification fires, relative to the timeout. A sealed type: `NotifyAtPercent` (a percentage of the timeout) or `NotifyBefore` (a fixed `Duration` lead time before it). Never both — the two are the same value. `null` means no Notification. The shell resolves it to a single millisecond offset before it reaches InactivityPolicy, so the policy is agnostic to the kind. See ADR-0002.
+_Avoid_: notification mode, threshold type
 
 **Explicit continue**:
 The mode (`requireExplicitContinue`) in which, after a Notification, only a `continueSession` call resets the timer — user input alone is ignored.

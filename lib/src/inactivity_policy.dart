@@ -10,12 +10,15 @@ class InactivitySnapshot {
   /// detected input), measured by the shell's clock.
   final int sinceResetMs;
 
-  /// Timeout in milliseconds (`timeoutDuration * 1000`). Never zero — the shell
-  /// does not schedule checks when the timeout is disabled.
+  /// Timeout in milliseconds. Never zero — the shell does not schedule checks
+  /// when the timeout is disabled.
   final int timeoutMs;
 
-  /// Percentage of the timeout at which the notification fires (0 disables it).
-  final int notificationPer;
+  /// Absolute inactivity offset (ms since reset) at which the Notification
+  /// fires, or `null` for no Notification. The shell resolves the caller's
+  /// `NotificationTrigger` to this single value, so the policy never needs to
+  /// know whether it came from a percentage or a fixed lead time.
+  final int? notifyAtMs;
 
   final bool requireExplicitContinue;
 
@@ -30,7 +33,7 @@ class InactivitySnapshot {
     required this.idleMs,
     required this.sinceResetMs,
     required this.timeoutMs,
-    required this.notificationPer,
+    required this.notifyAtMs,
     required this.requireExplicitContinue,
     required this.isNotified,
     required this.isLocked,
@@ -90,13 +93,11 @@ class InactivityPolicy {
       return const FireInactive();
     }
 
-    if (s.notificationPer > 0 && !s.isNotified) {
-      final reachedPer = effective * 100 ~/ s.timeoutMs;
-      if (reachedPer >= s.notificationPer) {
-        return FireNotification(
-          delayMs: _delay(s, effective: effective, notified: true),
-        );
-      }
+    final notifyAt = s.notifyAtMs;
+    if (notifyAt != null && !s.isNotified && effective >= notifyAt) {
+      return FireNotification(
+        delayMs: _delay(s, effective: effective, notified: true),
+      );
     }
 
     return ScheduleNext(delayMs: _delay(s, effective: effective));
@@ -107,12 +108,12 @@ class InactivityPolicy {
   int _delay(InactivitySnapshot s, {required int effective, bool? notified}) {
     final isNotified = notified ?? s.isNotified;
     final remain = s.timeoutMs - effective;
-    if (s.notificationPer == 0) return remain > 0 ? remain : 1;
+    final notifyAt = s.notifyAtMs;
+    if (notifyAt == null) return remain > 0 ? remain : 1;
 
-    final notifyTime = (s.timeoutMs * s.notificationPer / 100).round();
     if (remain <= 0) return 1;
-    if (effective < notifyTime) {
-      return isNotified ? remain : notifyTime - effective;
+    if (effective < notifyAt) {
+      return isNotified ? remain : notifyAt - effective;
     }
     if (!isNotified) return 1;
     return s.requireExplicitContinue ? max(remain, 1000) : min(remain, 500);

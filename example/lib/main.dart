@@ -5,6 +5,10 @@ void main() {
   runApp(const MyApp());
 }
 
+/// How the Single-mode demo schedules its notification, mapped to a
+/// [NotificationTrigger] (or `null`) when the timer is built.
+enum NotifyMode { percent, before, none }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -64,7 +68,9 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
 
   // User-configurable values
   int _timeoutDuration = 15; // default: 15 seconds
-  int _notificationPercent = 70; // default: 70%
+  NotifyMode _notifyMode = NotifyMode.percent;
+  int _notificationPercent = 70; // used when _notifyMode == percent
+  int _notifyBeforeSeconds = 5; // used when _notifyMode == before
   bool _requireExplicitContinue = true; // Require explicit continue
 
   @override
@@ -73,13 +79,45 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
     _setupInactivityTimer();
   }
 
+  /// Builds the [NotificationTrigger] for the selected [NotifyMode], or `null`
+  /// for no notification. The before value is clamped shorter than the timeout,
+  /// which [NotifyBefore] requires.
+  NotificationTrigger? _buildTrigger() {
+    switch (_notifyMode) {
+      case NotifyMode.none:
+        return null;
+      case NotifyMode.percent:
+        return _notificationPercent == 0
+            ? null
+            : NotifyAtPercent(_notificationPercent);
+      case NotifyMode.before:
+        final secs = _notifyBeforeSeconds.clamp(1, _timeoutDuration - 1);
+        return NotifyBefore(Duration(seconds: secs));
+    }
+  }
+
+  /// A human-readable description of the current notification setting.
+  String get _notifyDescription {
+    switch (_notifyMode) {
+      case NotifyMode.none:
+        return 'None (timeout only)';
+      case NotifyMode.percent:
+        return _notificationPercent == 0
+            ? 'None (0%)'
+            : 'At $_notificationPercent% of timeout';
+      case NotifyMode.before:
+        final secs = _notifyBeforeSeconds.clamp(1, _timeoutDuration - 1);
+        return '$secs seconds before timeout';
+    }
+  }
+
   void _setupInactivityTimer() {
     // Dispose the previous timer before replacing it so its timer callback
     // doesn't keep the old instance alive.
     _inactivityTimer?.dispose();
     _inactivityTimer = FlutterInactiveTimer(
-      timeoutDuration: _timeoutDuration,
-      notificationPer: _notificationPercent,
+      timeoutDuration: Duration(seconds: _timeoutDuration),
+      notification: _buildTrigger(),
       onInactiveDetected: _handleInactiveDetected,
       onNotification: _handleNotification,
       requireExplicitContinue: _requireExplicitContinue,
@@ -208,7 +246,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
                     Text('Current Settings:',
                         style: const TextStyle(fontWeight: FontWeight.bold)),
                     Text('Timeout: $_timeoutDuration seconds'),
-                    Text('Notification at: $_notificationPercent% of timeout'),
+                    Text('Notification: $_notifyDescription'),
                     Text(
                         'Require explicit continue: ${_requireExplicitContinue ? 'Yes' : 'No'}'),
                   ],
@@ -242,19 +280,59 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
                       },
                     ),
                     const SizedBox(height: 8),
-                    Text('Notification Threshold: $_notificationPercent%'),
-                    Slider(
-                      value: _notificationPercent.toDouble(),
-                      min: 0,
-                      max: 100,
-                      divisions: 10,
-                      label: '$_notificationPercent%',
-                      onChanged: (value) {
+                    const Text('Notification Mode:'),
+                    const SizedBox(height: 4),
+                    SegmentedButton<NotifyMode>(
+                      segments: const [
+                        ButtonSegment(
+                            value: NotifyMode.percent, label: Text('Percent')),
+                        ButtonSegment(
+                            value: NotifyMode.before, label: Text('Before')),
+                        ButtonSegment(
+                            value: NotifyMode.none, label: Text('None')),
+                      ],
+                      selected: {_notifyMode},
+                      onSelectionChanged: (selection) {
                         setState(() {
-                          _notificationPercent = value.round();
+                          _notifyMode = selection.first;
                         });
                       },
                     ),
+                    const SizedBox(height: 8),
+                    // Percent mode: fire at a percentage of the timeout.
+                    if (_notifyMode == NotifyMode.percent) ...[
+                      Text('Notification Threshold: $_notificationPercent%'),
+                      Slider(
+                        value: _notificationPercent.toDouble(),
+                        min: 0,
+                        max: 100,
+                        divisions: 10,
+                        label: '$_notificationPercent%',
+                        onChanged: (value) {
+                          setState(() {
+                            _notificationPercent = value.round();
+                          });
+                        },
+                      ),
+                    ],
+                    // Before mode: fire a fixed lead time before the timeout.
+                    if (_notifyMode == NotifyMode.before) ...[
+                      Text('Notify $_notifyBeforeSeconds seconds before timeout'),
+                      Slider(
+                        value: _notifyBeforeSeconds
+                            .clamp(1, _timeoutDuration - 1)
+                            .toDouble(),
+                        min: 1,
+                        // Must stay shorter than the timeout (NotifyBefore rule).
+                        max: (_timeoutDuration - 1).toDouble(),
+                        label: '$_notifyBeforeSeconds seconds',
+                        onChanged: (value) {
+                          setState(() {
+                            _notifyBeforeSeconds = value.round();
+                          });
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -297,10 +375,10 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
                     Text(
-                        '• A Snackbar warning when reaching the notification threshold'),
+                        '• A Snackbar warning when the notification fires'),
                     Text('• A Dialog when inactive timeout is reached'),
                     Text(
-                        '• Customizable timeout duration and notification threshold'),
+                        '• Notification by percent, seconds-before-timeout, or none'),
                   ],
                 ),
               ),
@@ -360,12 +438,12 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
   int _leftTimeoutDuration = 10; // 10 sec
   int _leftNotificationPercent = 50; // 50%
 
-  // Right timer
+  // Right timer — demonstrates the "N seconds before timeout" mode.
   FlutterInactiveTimer? _rightTimer;
   bool _isRightMonitoring = false;
   String _rightStatus = 'Not monitoring';
   int _rightTimeoutDuration = 20; // 20 sec
-  int _rightNotificationPercent = 80; // 80%
+  int _rightNotifyBeforeSeconds = 5; // notify 5s before timeout
 
   @override
   void initState() {
@@ -380,8 +458,10 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
 
     // Configure left timer
     _leftTimer = FlutterInactiveTimer(
-      timeoutDuration: _leftTimeoutDuration,
-      notificationPer: _leftNotificationPercent,
+      timeoutDuration: Duration(seconds: _leftTimeoutDuration),
+      notification: _leftNotificationPercent == 0
+          ? null
+          : NotifyAtPercent(_leftNotificationPercent),
       onInactiveDetected: () {
         setState(() {
           _leftStatus = 'INACTIVE DETECTED!';
@@ -400,10 +480,14 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
       },
     );
 
-    // Configure right timer
+    // Configure right timer — notify a fixed lead time before the timeout.
     _rightTimer = FlutterInactiveTimer(
-      timeoutDuration: _rightTimeoutDuration,
-      notificationPer: _rightNotificationPercent,
+      timeoutDuration: Duration(seconds: _rightTimeoutDuration),
+      notification: NotifyBefore(
+        Duration(
+          seconds: _rightNotifyBeforeSeconds.clamp(1, _rightTimeoutDuration - 1),
+        ),
+      ),
       onInactiveDetected: () {
         setState(() {
           _rightStatus = 'INACTIVE DETECTED!';
@@ -533,7 +617,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Left Timer',
+                            'Left Timer (percent)',
                             style: TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold),
                           ),
@@ -622,7 +706,7 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Right Timer',
+                            'Right Timer (before)',
                             style: TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold),
                           ),
@@ -653,16 +737,18 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
                             },
                           ),
 
-                          Text('Notification: $_rightNotificationPercent%'),
+                          Text(
+                              'Notify: $_rightNotifyBeforeSeconds s before timeout'),
                           Slider(
-                            value: _rightNotificationPercent.toDouble(),
-                            min: 0,
-                            max: 100,
-                            divisions: 10,
-                            label: '$_rightNotificationPercent%',
+                            value: _rightNotifyBeforeSeconds
+                                .clamp(1, _rightTimeoutDuration - 1)
+                                .toDouble(),
+                            min: 1,
+                            max: (_rightTimeoutDuration - 1).toDouble(),
+                            label: '$_rightNotifyBeforeSeconds s',
                             onChanged: (value) {
                               setState(() {
-                                _rightNotificationPercent = value.round();
+                                _rightNotifyBeforeSeconds = value.round();
                               });
                             },
                           ),

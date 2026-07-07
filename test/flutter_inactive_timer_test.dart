@@ -67,8 +67,32 @@ void main() {
 
     test('init() creates an instance with zero defaults', () {
       final timer = FlutterInactiveTimer.init();
-      expect(timer.timeoutDuration, 0);
-      expect(timer.notificationPer, 0);
+      expect(timer.timeoutDuration, Duration.zero);
+      expect(timer.notification, isNull);
+    });
+
+    test('NotifyBefore >= timeout asserts (no valid firing point)', () {
+      expect(
+        () => FlutterInactiveTimer(
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyBefore(Duration(seconds: 15)),
+          onInactiveDetected: () {},
+          onNotification: () {},
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('NotifyBefore with a negative lead time asserts', () {
+      expect(
+        () => FlutterInactiveTimer(
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyBefore(Duration(seconds: -1)),
+          onInactiveDetected: () {},
+          onNotification: () {},
+        ),
+        throwsA(isA<AssertionError>()),
+      );
     });
 
     group('notification firing time', () {
@@ -77,15 +101,15 @@ void main() {
       /// fired, or null if it never did.
       int? firstNotificationOffsetMs({
         required int timeoutDuration,
-        required int notificationPer,
+        required NotificationTrigger? notification,
       }) {
         int? notifyAt;
         fakeAsync((async) {
           mock.nowMs = () => async.elapsed.inMilliseconds;
 
           final timer = FlutterInactiveTimer(
-            timeoutDuration: timeoutDuration,
-            notificationPer: notificationPer,
+            timeoutDuration: Duration(seconds: timeoutDuration),
+            notification: notification,
             onInactiveDetected: () {},
             onNotification: () {
               notifyAt ??= async.elapsed.inMilliseconds;
@@ -105,21 +129,24 @@ void main() {
 
       test('per=10, timeout=10s fires at 1000ms (10% elapsed)', () {
         expect(
-          firstNotificationOffsetMs(timeoutDuration: 10, notificationPer: 10),
+          firstNotificationOffsetMs(
+              timeoutDuration: 10, notification: const NotifyAtPercent(10)),
           1000,
         );
       });
 
       test('per=50, timeout=10s fires at 5000ms (50% elapsed)', () {
         expect(
-          firstNotificationOffsetMs(timeoutDuration: 10, notificationPer: 50),
+          firstNotificationOffsetMs(
+              timeoutDuration: 10, notification: const NotifyAtPercent(50)),
           5000,
         );
       });
 
       test('per=80, timeout=10s fires at 8000ms (80% elapsed)', () {
         expect(
-          firstNotificationOffsetMs(timeoutDuration: 10, notificationPer: 80),
+          firstNotificationOffsetMs(
+              timeoutDuration: 10, notification: const NotifyAtPercent(80)),
           8000,
         );
       });
@@ -127,14 +154,38 @@ void main() {
       test('per=90, timeout=60s fires at 54000ms (regression: no busy-loop)',
           () {
         expect(
-          firstNotificationOffsetMs(timeoutDuration: 60, notificationPer: 90),
+          firstNotificationOffsetMs(
+              timeoutDuration: 60, notification: const NotifyAtPercent(90)),
           54000,
         );
       });
 
-      test('per=0 never fires onNotification', () {
+      test('null notification never fires onNotification', () {
         expect(
-          firstNotificationOffsetMs(timeoutDuration: 10, notificationPer: 0),
+          firstNotificationOffsetMs(timeoutDuration: 10, notification: null),
+          isNull,
+        );
+      });
+
+      test('NotifyBefore(3s), timeout=10s fires at 7000ms (3s before timeout)',
+          () {
+        expect(
+          firstNotificationOffsetMs(
+            timeoutDuration: 10,
+            notification: const NotifyBefore(Duration(seconds: 3)),
+          ),
+          7000,
+        );
+      });
+
+      test('NotifyBefore(0) never fires: it coincides with timeout', () {
+        // notifyAt == timeout, and the policy checks timeout before the
+        // notification, so the timeout preempts it. No notification is emitted.
+        expect(
+          firstNotificationOffsetMs(
+            timeoutDuration: 10,
+            notification: const NotifyBefore(Duration.zero),
+          ),
           isNull,
         );
       });
@@ -145,8 +196,8 @@ void main() {
           mock.nowMs = () => async.elapsed.inMilliseconds;
 
           final timer = FlutterInactiveTimer(
-            timeoutDuration: 10,
-            notificationPer: 10,
+            timeoutDuration: const Duration(seconds: 10),
+            notification: const NotifyAtPercent(10),
             onInactiveDetected: () {},
             onNotification: () {
               notifyAt ??= async.elapsed.inMilliseconds;
@@ -176,8 +227,8 @@ void main() {
         mock.nowMs = () => async.elapsed.inMilliseconds;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 5,
-          notificationPer: 50,
+          timeoutDuration: const Duration(seconds: 5),
+          notification: const NotifyAtPercent(50),
           onInactiveDetected: () {
             timeoutAt ??= async.elapsed.inMilliseconds;
           },
@@ -202,8 +253,8 @@ void main() {
         int notifyCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10, // target 1000ms of inactivity
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10), // target 1000ms of inactivity
           onInactiveDetected: () {},
           onNotification: () => notifyCount++,
           platform: mock,
@@ -240,8 +291,8 @@ void main() {
         int? timeoutAt;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           requireExplicitContinue: true,
           onInactiveDetected: () {
             timeoutAt ??= async.elapsed.inMilliseconds;
@@ -273,8 +324,8 @@ void main() {
         int notifyCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           requireExplicitContinue: true,
           onInactiveDetected: () {},
           onNotification: () => notifyCount++,
@@ -312,8 +363,8 @@ void main() {
         int? activeAt;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           onInactiveDetected: () {},
           onNotification: () => notifyCount++,
           onActive: () {
@@ -351,8 +402,8 @@ void main() {
         int activeCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 50, // notify at 5s
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(50), // notify at 5s
           onInactiveDetected: () {},
           onNotification: () {},
           onActive: () => activeCount++,
@@ -380,8 +431,8 @@ void main() {
         int activeCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           requireExplicitContinue: true,
           onInactiveDetected: () {},
           onNotification: () {},
@@ -412,8 +463,8 @@ void main() {
         int activeCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 50,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(50),
           requireExplicitContinue: true,
           onInactiveDetected: () {},
           onNotification: () {},
@@ -444,8 +495,8 @@ void main() {
         int? activeAt;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           onInactiveDetected: () {},
           onNotification: () {},
           onActive: () => activeAt ??= async.elapsed.inMilliseconds,
@@ -475,8 +526,8 @@ void main() {
         int timeoutCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           onInactiveDetected: () => timeoutCount++,
           onNotification: () => notifyCount++,
           platform: mock,
@@ -503,8 +554,8 @@ void main() {
         int notifyCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           onInactiveDetected: () {},
           onNotification: () => notifyCount++,
           platform: platform,
@@ -536,8 +587,8 @@ void main() {
         int timeoutCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           onInactiveDetected: () => timeoutCount++,
           onNotification: () => notifyCount++,
           platform: mock,
@@ -563,8 +614,8 @@ void main() {
         int notifyCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           onInactiveDetected: () {},
           onNotification: () => notifyCount++,
           platform: mock,
@@ -595,8 +646,8 @@ void main() {
         int timeoutCount = 0;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 0,
-          notificationPer: 50,
+          timeoutDuration: Duration.zero,
+          notification: const NotifyAtPercent(50),
           onInactiveDetected: () => timeoutCount++,
           onNotification: () => notifyCount++,
           platform: mock,
@@ -629,8 +680,8 @@ void main() {
           ..nowMs = () => async.elapsed.inMilliseconds;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10, // notify at 10% -> 1000ms
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10), // notify at 10% -> 1000ms
           onInactiveDetected: () {},
           onNotification: () => notifyAt ??= async.elapsed.inMilliseconds,
           platform: injected,
@@ -662,8 +713,8 @@ void main() {
           ..nowMs = () => async.elapsed.inMilliseconds;
 
         final timer = FlutterInactiveTimer(
-          timeoutDuration: 10,
-          notificationPer: 10,
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(10),
           onInactiveDetected: () {},
           onNotification: () => notifyAt ??= async.elapsed.inMilliseconds,
           platform: injected,

@@ -4,12 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const policy = InactivityPolicy();
 
-  // timeout 10s, notify at 10% -> notification threshold at 1000ms.
+  // timeout 10s, notification threshold at 1000ms (the 10% mark).
   InactivitySnapshot snap({
     int idleMs = 0,
     int sinceResetMs = 0,
     int timeoutMs = 10000,
-    int notificationPer = 10,
+    int? notifyAtMs = 1000,
     bool requireExplicitContinue = false,
     bool isNotified = false,
     bool isLocked = false,
@@ -18,7 +18,7 @@ void main() {
         idleMs: idleMs,
         sinceResetMs: sinceResetMs,
         timeoutMs: timeoutMs,
-        notificationPer: notificationPer,
+        notifyAtMs: notifyAtMs,
         requireExplicitContinue: requireExplicitContinue,
         isNotified: isNotified,
         isLocked: isLocked,
@@ -96,9 +96,9 @@ void main() {
     expect((decision as ScheduleNext).delayMs, 1000);
   });
 
-  test('notificationPer 0 never fires a notification', () {
+  test('notifyAtMs null never fires a notification', () {
     final decision = policy.evaluate(
-      snap(idleMs: 5000, sinceResetMs: 5000, notificationPer: 0),
+      snap(idleMs: 5000, sinceResetMs: 5000, notifyAtMs: null),
     );
     expect(decision, isA<ScheduleNext>());
     // Waits out the whole remaining timeout in one hop.

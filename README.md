@@ -6,7 +6,7 @@ A Flutter plugin for detecting user inactivity in desktop applications (Windows 
  
 - 🖥️ Supports Windows and macOS platforms
 - ⏱️ Customizable inactivity timeout duration
-- 🔔 Configurable notification threshold before timeout occurs
+- 🔔 Notification either at a percentage of the timeout or a fixed lead time before it
 - 🔁 `onActive` callback for reacting when the user returns from inactivity
 - 🔄 Easy-to-use API to start, stop, and dispose monitoring
 - 🧹 `dispose()` for deterministic teardown (no leaked timers)
@@ -18,10 +18,10 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_inactive_timer: ^2.0.0
+  flutter_inactive_timer: ^3.0.0
 ```
 
-> **Upgrading from 1.x?** See [Migrating to 2.0.0](#migrating-to-200) below.
+> **Upgrading from 2.x?** See [Migrating to 3.0.0](#migrating-to-300) below.
 
 ## Usage
 
@@ -32,8 +32,8 @@ import 'package:flutter_inactive_timer/flutter_inactive_timer.dart';
 
 // Create an instance with custom settings
 final inactivityTimer = FlutterInactiveTimer(
-  timeoutDuration: 300, // 5 minutes in seconds
-  notificationPer: 80, // Show notification when 80% of timeout has elapsed
+  timeoutDuration: Duration(minutes: 5),
+  notification: NotifyAtPercent(80), // notify at 80% of the timeout (i.e. 4 min)
   onInactiveDetected: () {
     // Handle inactive timeout, e.g., log out the user
     print('User inactive for too long. Session expired.');
@@ -64,6 +64,33 @@ inactivityTimer.dispose();
 > so it can be garbage collected; a disposed timer cannot be restarted. Always
 > `dispose()` from your widget's `State.dispose`.
 
+### Notification Timing
+
+The `notification` parameter decides **when** the pre-timeout warning fires. It
+is a `NotificationTrigger`, one of:
+
+```dart
+// At a percentage of the timeout — here 80% of 5 minutes = 4 minutes.
+notification: NotifyAtPercent(80),
+
+// A fixed lead time before the timeout, independent of its length —
+// here always 30 seconds before the timeout, whatever the timeout is.
+notification: NotifyBefore(Duration(seconds: 30)),
+
+// No notification at all — only onInactiveDetected fires, at the timeout.
+notification: null, // (or omit it entirely; null is the default)
+```
+
+Use `NotifyBefore` when the warning should give the user a **constant** amount
+of time to react (e.g. "always warn 1 minute before logout"), regardless of how
+long the timeout is. Use `NotifyAtPercent` when the warning should scale with
+the timeout.
+
+> `NotifyBefore(before)` requires `before` to be `>= 0` and shorter than
+> `timeoutDuration` (asserted in debug builds). A lead time equal to or longer
+> than the timeout has no valid firing point, so in release it safely fires at
+> the moment monitoring starts.
+
 ### Advanced Usage
 
 #### Reacting to User Return (`onActive`)
@@ -75,8 +102,8 @@ etc.) without having to track it yourself.
 
 ```dart
 final inactivityTimer = FlutterInactiveTimer(
-  timeoutDuration: 300,
-  notificationPer: 80,
+  timeoutDuration: Duration(minutes: 5),
+  notification: NotifyAtPercent(80),
   onNotification: () => setState(() => _status = 'Almost inactive'),
   onActive: () => setState(() => _status = 'Active'),
   onInactiveDetected: () => setState(() => _status = 'Session expired'),
@@ -98,8 +125,8 @@ You can require users to explicitly confirm they want to continue their session 
 
 ```dart
 final inactivityTimer = FlutterInactiveTimer(
-  timeoutDuration: 300,
-  notificationPer: 80,
+  timeoutDuration: Duration(minutes: 5),
+  notification: NotifyAtPercent(80),
   onInactiveDetected: handleTimeout,
   onNotification: showWarningDialog,
   requireExplicitContinue: true, // Require explicit user action to continue
@@ -209,6 +236,38 @@ The scheduling and notification rules live in a pure, unit-tested
 1. **Timer not triggering**: Make sure your app is running on a supported platform (Windows or macOS).
 2. **Inconsistent behavior**: Make sure `startMonitoring()` is called before expecting the timer to work.
 3. **macOS permission issues**: Some macOS environments might require additional permissions for input monitoring.
+
+## Migrating to 3.0.0
+
+`3.0.0` changes the constructor's public API:
+
+- **`notificationPer` (int) → `notification` (`NotificationTrigger?`).** Wrap the
+  old percentage in `NotifyAtPercent`, and replace `notificationPer: 0` (the old
+  "no notification" value) with `null` or by omitting the parameter.
+- **`timeoutDuration` (int seconds) → `Duration`.**
+
+```dart
+// 2.x
+FlutterInactiveTimer(
+  timeoutDuration: 300,
+  notificationPer: 80,
+  onInactiveDetected: ...,
+  onNotification: ...,
+);
+
+// 3.0.0
+FlutterInactiveTimer(
+  timeoutDuration: Duration(seconds: 300),
+  notification: NotifyAtPercent(80),
+  onInactiveDetected: ...,
+  onNotification: ...,
+);
+```
+
+You can also now schedule the notification a fixed time before the timeout with
+`NotifyBefore(Duration(...))` — see [Notification Timing](#notification-timing).
+See [ADR-0002](https://github.com/kihyun1998/flutter_inactive_timer/blob/main/docs/adr/0002-notification-trigger-and-duration.md)
+for the design rationale.
 
 ## Migrating to 2.0.0
 

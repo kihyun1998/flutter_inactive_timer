@@ -14,13 +14,17 @@ class GatedIdlePlatform
   GatedIdlePlatform(this.nowMs);
   final int Function() nowMs;
   int lastInputMs = 0;
-  Completer<void>? _hold;
+  Completer<void>? _hold; // armed by holdNextRead, before the read starts
+  Completer<void>? _held; // the completer a parked read is awaiting
 
   /// Make the *next* idle read suspend until [releaseHeldRead].
   void holdNextRead() => _hold = Completer<void>();
   void releaseHeldRead() {
-    _hold?.complete();
+    // Complete whichever exists: the parked read's completer if the read has
+    // already started, otherwise the not-yet-consumed armed one.
+    (_held ?? _hold)?.complete();
     _hold = null;
+    _held = null;
   }
 
   @override
@@ -28,7 +32,9 @@ class GatedIdlePlatform
     final held = _hold;
     if (held != null) {
       _hold = null; // only this read is gated
+      _held = held;
       await held.future;
+      _held = null;
     }
     return nowMs() - lastInputMs;
   }
@@ -145,6 +151,39 @@ void main() {
           reason: 'a disposed timer must arm nothing');
       expect(notifyCount, 0);
       expect(timeoutCount, 0);
+    });
+  });
+
+  test('remaining() racing stopMonitoring during its idle read returns zero',
+      () {
+    fakeAsync((async) {
+      final gated = GatedIdlePlatform(() => async.elapsed.inMilliseconds);
+
+      final timer = FlutterInactiveTimer(
+        timeoutDuration: const Duration(seconds: 10),
+        notification: const NotifyAtPercent(50),
+        onInactiveDetected: () {},
+        onNotification: () {},
+        platform: gated,
+        clock: () => async.elapsed.inMilliseconds,
+      );
+
+      timer.startMonitoring();
+      async.flushMicrotasks(); // consumes the startup pump's (ungated) read
+
+      // Park a remaining() call on a gated idle read...
+      gated.holdNextRead();
+      Duration? result;
+      timer.remaining().then((d) => result = d);
+      async.flushMicrotasks();
+
+      // ...then supersede monitoring while the read is still in flight.
+      timer.stopMonitoring();
+      gated.releaseHeldRead();
+      async.flushMicrotasks();
+
+      // The post-await guard must win: no stale countdown after stop.
+      expect(result, Duration.zero);
     });
   });
 }

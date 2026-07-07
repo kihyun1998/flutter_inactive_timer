@@ -128,6 +128,27 @@ class FlutterInactiveTimer {
     return () => stopwatch.elapsedMilliseconds;
   }
 
+  /// The time left before [onInactiveDetected] fires, for driving a live
+  /// countdown in the UI.
+  ///
+  /// Reads the current idle duration, so the countdown resets on user activity
+  /// (except in [requireExplicitContinue] lock, where input is ignored — see
+  /// [InactivityPolicy.remainingMs]). Returns [Duration.zero] when not
+  /// monitoring: before [startMonitoring], after [stopMonitoring] / [dispose],
+  /// when [timeoutDuration] is zero, or once the timeout has already fired.
+  ///
+  /// This is a *pull* API — call it from your own periodic ticker (e.g. a
+  /// one-second `Timer.periodic`) to repaint; the timer keeps no ticker of its
+  /// own.
+  Future<Duration> remaining() async {
+    if (!_isMonitoring || timeoutDuration == Duration.zero) {
+      return Duration.zero;
+    }
+    final int idleMs = await _platform.getIdleDuration();
+    if (!_isMonitoring) return Duration.zero;
+    return Duration(milliseconds: _policy.remainingMs(_snapshot(idleMs)));
+  }
+
   /// Called when the user explicitly chooses to continue the session
   void continueSession() {
     if (_disposed || !_isMonitoring || timeoutDuration == Duration.zero) return;

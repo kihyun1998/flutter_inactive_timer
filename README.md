@@ -7,6 +7,7 @@ A Flutter plugin for detecting user inactivity in desktop applications (Windows 
 - 🖥️ Supports Windows and macOS platforms
 - ⏱️ Customizable inactivity timeout duration
 - 🔔 Notification either at a percentage of the timeout or a fixed lead time before it
+- ⏳ `remaining()` for driving a live countdown ("logs out in 04:59")
 - 🔁 `onActive` callback for reacting when the user returns from inactivity
 - 🔄 Easy-to-use API to start, stop, and dispose monitoring
 - 🧹 `dispose()` for deterministic teardown (no leaked timers)
@@ -155,6 +156,46 @@ void showWarningDialog() {
     ),
   );
 }
+```
+
+#### Live Countdown (`remaining()`)
+
+`remaining()` returns how much time is left before the timeout — use it to show
+a live "logs out in `04:59`" countdown. It reads the current idle duration, so
+the countdown resets when the user is active, and stays correct in
+`requireExplicitContinue` lock (where computing `timeout - idle` yourself would
+not). It returns `Duration.zero` when not monitoring.
+
+It is a **pull** API: the plugin keeps no ticker of its own, so drive it from
+your own periodic timer and repaint at whatever cadence you like.
+
+```dart
+Timer? _ticker;
+Duration _remaining = Duration.zero;
+
+void _startCountdown() {
+  _ticker = Timer.periodic(const Duration(seconds: 1), (_) async {
+    final left = await inactivityTimer.remaining();
+    if (mounted) setState(() => _remaining = left);
+  });
+}
+
+@override
+void dispose() {
+  _ticker?.cancel(); // always cancel your ticker
+  inactivityTimer.dispose();
+  super.dispose();
+}
+```
+
+Prefer a `Stream` (e.g. for a `StreamBuilder`)? Wrap the same call — no extra
+plugin API needed:
+
+```dart
+final countdown = Stream.periodic(
+  const Duration(seconds: 1),
+  (_) => inactivityTimer.remaining(),
+).asyncMap((future) => future);
 ```
 
 ### Lifecycle Management

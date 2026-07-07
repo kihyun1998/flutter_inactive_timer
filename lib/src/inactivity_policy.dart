@@ -76,6 +76,15 @@ class ResetFromInput extends InactivityDecision {
 class InactivityPolicy {
   const InactivityPolicy();
 
+  /// The inactivity time left before timeout, in milliseconds, for the given
+  /// snapshot. Unlocked, the user's fresh input counts (so the countdown resets
+  /// on activity); locked, input is ignored and only the reset baseline counts.
+  /// Clamped to `[0, timeoutMs]`.
+  int remainingMs(InactivitySnapshot s) {
+    final effective = s.isLocked ? s.sinceResetMs : min(s.idleMs, s.sinceResetMs);
+    return (s.timeoutMs - effective).clamp(0, s.timeoutMs);
+  }
+
   InactivityDecision evaluate(InactivitySnapshot s) {
     // The user's last input is more recent than our reset baseline: they were
     // active since we last reset. Ignored while locked (requireExplicitContinue

@@ -104,4 +104,26 @@ void main() {
     // Waits out the whole remaining timeout in one hop.
     expect((decision as ScheduleNext).delayMs, 5000);
   });
+
+  test('remainingMs (unlocked) uses fresh input: timeout - min(idle, since)',
+      () {
+    // The user moved 2s ago (idle 2000) although our reset baseline is 5s old.
+    // Unlocked, the fresher input wins: 10s - 2s = 8s left.
+    final ms = policy.remainingMs(snap(idleMs: 2000, sinceResetMs: 5000));
+    expect(ms, 8000);
+  });
+
+  test('remainingMs (locked) ignores input and counts from the baseline', () {
+    // Locked: the recent input (idle 100) is ignored; the 9s-old baseline
+    // stands, so 10s - 9s = 1s left.
+    final ms = policy.remainingMs(
+      snap(idleMs: 100, sinceResetMs: 9000, isLocked: true),
+    );
+    expect(ms, 1000);
+  });
+
+  test('remainingMs clamps to zero past the timeout', () {
+    final ms = policy.remainingMs(snap(idleMs: 12000, sinceResetMs: 12000));
+    expect(ms, 0);
+  });
 }

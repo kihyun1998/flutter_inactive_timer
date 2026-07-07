@@ -34,6 +34,13 @@
   fires at 3 minutes). `before` must be `>= 0` and shorter than the timeout
   (asserted in debug); a value `>=` the timeout safely clamps to firing at
   monitoring start.
+- `Future<Duration> remaining()` returns the time left before timeout, for
+  driving a live countdown (e.g. a "logs out in 04:59" label). It reads the
+  current idle duration, so the countdown resets on user activity — and stays
+  correct in `requireExplicitContinue` lock, where a naive `timeout - idle`
+  would not. Returns `Duration.zero` when not monitoring. It is a *pull* API:
+  drive it from your own periodic ticker; the timer keeps none of its own. See
+  ADR-0003.
 
 ## 2.0.0
 

@@ -81,7 +81,8 @@ class InactivityPolicy {
   /// on activity); locked, input is ignored and only the reset baseline counts.
   /// Clamped to `[0, timeoutMs]`.
   int remainingMs(InactivitySnapshot s) {
-    final effective = s.isLocked ? s.sinceResetMs : min(s.idleMs, s.sinceResetMs);
+    final effective =
+        s.isLocked ? s.sinceResetMs : min(s.idleMs, s.sinceResetMs);
     return (s.timeoutMs - effective).clamp(0, s.timeoutMs);
   }
 

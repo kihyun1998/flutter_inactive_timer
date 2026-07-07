@@ -337,7 +337,8 @@ void main() {
 
         final timer = FlutterInactiveTimer(
           timeoutDuration: const Duration(seconds: 10),
-          notification: const NotifyAtPercent(10), // target 1000ms of inactivity
+          notification:
+              const NotifyAtPercent(10), // target 1000ms of inactivity
           onInactiveDetected: () {},
           onNotification: () => notifyCount++,
           platform: mock,

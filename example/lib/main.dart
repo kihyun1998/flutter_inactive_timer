@@ -362,7 +362,8 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
                     ],
                     // Before mode: fire a fixed lead time before the timeout.
                     if (_notifyMode == NotifyMode.before) ...[
-                      Text('Notify $_notifyBeforeSeconds seconds before timeout'),
+                      Text(
+                          'Notify $_notifyBeforeSeconds seconds before timeout'),
                       Slider(
                         value: _notifyBeforeSeconds
                             .clamp(1, _timeoutDuration - 1)
@@ -419,10 +420,8 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
                     Text('What this demo shows:',
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
-                    Text(
-                        '• A live MM:SS countdown driven by remaining()'),
-                    Text(
-                        '• A Snackbar warning when the notification fires'),
+                    Text('• A live MM:SS countdown driven by remaining()'),
+                    Text('• A Snackbar warning when the notification fires'),
                     Text('• A Dialog when inactive timeout is reached'),
                     Text(
                         '• Notification by percent, seconds-before-timeout, or none'),
@@ -534,7 +533,8 @@ class _MultiModeDemoState extends State<MultiModeDemo> {
       timeoutDuration: Duration(seconds: _rightTimeoutDuration),
       notification: NotifyBefore(
         Duration(
-          seconds: _rightNotifyBeforeSeconds.clamp(1, _rightTimeoutDuration - 1),
+          seconds:
+              _rightNotifyBeforeSeconds.clamp(1, _rightTimeoutDuration - 1),
         ),
       ),
       onInactiveDetected: () {

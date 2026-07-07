@@ -1,7 +1,6 @@
 # Flutter Inactive Timer
 
 [![CI](https://github.com/kihyun1998/flutter_inactive_timer/actions/workflows/ci.yml/badge.svg)](https://github.com/kihyun1998/flutter_inactive_timer/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/kihyun1998/flutter_inactive_timer/branch/main/graph/badge.svg)](https://codecov.io/gh/kihyun1998/flutter_inactive_timer)
 
 A Flutter plugin for detecting user inactivity in desktop applications (Windows and macOS). This plugin provides customizable timeout and notification thresholds, making it ideal for implementing security features like automatic logout or session timeouts.
 

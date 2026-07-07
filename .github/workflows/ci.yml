@@ -36,13 +36,15 @@ jobs:
       - name: Test
         run: flutter test --coverage
 
-      # Non-blocking: a coverage upload hiccup must not fail the build.
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage/lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+      # Self-contained coverage gate — no external service. Fails the build if
+      # line coverage drops below the threshold.
+      - name: Check coverage threshold
+        run: |
+          awk -F: '/^LF:/{f+=$2} /^LH:/{h+=$2} END{
+            cov = f ? h*100/f : 0
+            printf "Line coverage: %.1f%% (%d/%d lines)\n", cov, h, f
+            if (cov < 90) { print "::error::line coverage below 90% threshold"; exit 1 }
+          }' coverage/lcov.info
 
   windows:
     name: Windows

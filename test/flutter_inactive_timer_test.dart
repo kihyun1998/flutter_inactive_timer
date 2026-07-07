@@ -95,6 +95,89 @@ void main() {
       );
     });
 
+    test('remaining() counts down while monitoring', () {
+      fakeAsync((async) {
+        mock.nowMs = () => async.elapsed.inMilliseconds;
+
+        final timer = FlutterInactiveTimer(
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(50),
+          onInactiveDetected: () {},
+          onNotification: () {},
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
+        );
+
+        timer.startMonitoring();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 3));
+
+        Duration? left;
+        timer.remaining().then((d) => left = d);
+        async.flushMicrotasks();
+
+        // 10s timeout, 3s of inactivity elapsed -> 7s left.
+        expect(left, const Duration(seconds: 7));
+
+        timer.stopMonitoring();
+      });
+    });
+
+    test('remaining() is zero before start and after stop', () {
+      fakeAsync((async) {
+        mock.nowMs = () => async.elapsed.inMilliseconds;
+
+        final timer = FlutterInactiveTimer(
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(50),
+          onInactiveDetected: () {},
+          onNotification: () {},
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
+        );
+
+        Duration? beforeStart;
+        timer.remaining().then((d) => beforeStart = d);
+        async.flushMicrotasks();
+        expect(beforeStart, Duration.zero);
+
+        timer.startMonitoring();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 3));
+        timer.stopMonitoring();
+
+        Duration? afterStop;
+        timer.remaining().then((d) => afterStop = d);
+        async.flushMicrotasks();
+        expect(afterStop, Duration.zero);
+      });
+    });
+
+    test('remaining() is zero after the timeout fires', () {
+      fakeAsync((async) {
+        mock.nowMs = () => async.elapsed.inMilliseconds;
+
+        final timer = FlutterInactiveTimer(
+          timeoutDuration: const Duration(seconds: 10),
+          notification: const NotifyAtPercent(50),
+          onInactiveDetected: () {},
+          onNotification: () {},
+          platform: mock,
+          clock: () => async.elapsed.inMilliseconds,
+        );
+
+        timer.startMonitoring();
+        async.flushMicrotasks();
+        // Run past the timeout; the timer stops itself when inactive fires.
+        async.elapse(const Duration(seconds: 11));
+
+        Duration? afterTimeout;
+        timer.remaining().then((d) => afterTimeout = d);
+        async.flushMicrotasks();
+        expect(afterTimeout, Duration.zero);
+      });
+    });
+
     group('notification firing time', () {
       /// Drives a timer until `onInactiveDetected` fires (or the given cap
       /// elapses) and returns the ms offset at which `onNotification` first

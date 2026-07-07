@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer.dart';
 
@@ -65,6 +67,11 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
   FlutterInactiveTimer? _inactivityTimer;
   bool _isMonitoring = false;
   String _status = 'Not monitoring';
+
+  // A UI-owned ticker that pulls remaining() once a second for the countdown.
+  // The plugin keeps no ticker of its own — this is the "pull" pattern.
+  Timer? _ticker;
+  Duration _remaining = Duration.zero;
 
   // User-configurable values
   int _timeoutDuration = 15; // default: 15 seconds
@@ -175,6 +182,28 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
     }
   }
 
+  /// Pulls `remaining()` every second to drive the countdown label.
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) async {
+      final left = await _inactivityTimer?.remaining() ?? Duration.zero;
+      if (mounted) setState(() => _remaining = left);
+    });
+  }
+
+  void _stopTicker() {
+    _ticker?.cancel();
+    _ticker = null;
+    setState(() => _remaining = Duration.zero);
+  }
+
+  /// Formats a duration as MM:SS for the countdown display.
+  String _formatMMSS(Duration d) {
+    final minutes = d.inMinutes.toString().padLeft(2, '0');
+    final seconds = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
   void _startMonitoring() async {
     if (_inactivityTimer == null) return;
 
@@ -185,6 +214,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
       _status = 'Monitoring active';
       _isMonitoring = true;
     });
+    _startTicker();
 
     // Notify that monitoring has started
     ScaffoldMessenger.of(context).showSnackBar(
@@ -199,6 +229,7 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
     if (_inactivityTimer == null) return;
 
     _inactivityTimer!.stopMonitoring();
+    _stopTicker();
 
     setState(() {
       _status = 'Monitoring stopped';
@@ -242,6 +273,20 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
                       style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold),
                     ),
+                    if (_isMonitoring) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Logs out in ${_formatMMSS(_remaining)}',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          color: _remaining.inSeconds <= 5
+                              ? Colors.red
+                              : Colors.teal,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     Text('Current Settings:',
                         style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -375,6 +420,8 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
                     Text(
+                        '• A live MM:SS countdown driven by remaining()'),
+                    Text(
                         '• A Snackbar warning when the notification fires'),
                     Text('• A Dialog when inactive timeout is reached'),
                     Text(
@@ -417,7 +464,9 @@ class _SingleModeDemoState extends State<SingleModeDemo> {
 
   @override
   void dispose() {
-    // Permanently tear down the timer so it can be garbage collected.
+    // Cancel the UI ticker and permanently tear down the timer so both can be
+    // garbage collected.
+    _ticker?.cancel();
     _inactivityTimer?.dispose();
     super.dispose();
   }

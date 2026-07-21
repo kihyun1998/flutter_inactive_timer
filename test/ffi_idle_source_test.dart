@@ -63,10 +63,9 @@ void main() {
   // Sources whose binding has not been written yet throw until their own
   // ticket lands. The message has to name the source, or a runtime failure on
   // a user's machine says only "unsupported" with no clue which binding is
-  // missing. Windows has landed and is covered in windows_idle_source_test.dart.
+  // missing. Landed bindings have their own test file.
   group('scaffolded sources', () {
     final pending = <String, IdleSource>{
-      'macos/IOKit': const MacOsIoKitIdleSource(),
       'macos/CoreGraphics': const MacOsCoreGraphicsIdleSource(),
       'unsupported OS': const UnsupportedIdleSource('linux'),
     };

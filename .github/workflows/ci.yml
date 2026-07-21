@@ -109,3 +109,12 @@ jobs:
             -scheme Runner \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO
+
+      # The Dart job runs on Linux and never opens IOKit, so agreement between
+      # the FFI sources and the method channel can only be asserted here
+      # (ADR-0004). This also exercises the bindings under the example app's App
+      # Sandbox, which is the environment a shipped app runs in — a framework
+      # that could not be opened there would fail here.
+      - name: Idle parity
+        working-directory: example
+        run: flutter test integration_test -d macos

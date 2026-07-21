@@ -2,15 +2,12 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer_ffi.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer_platform_interface.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:test/test.dart';
 
 /// Fake platform whose idle duration is derived from a test-controlled clock:
 /// `idle = now - lastInput`. Set [nowMs] to `FakeAsync.elapsed` and move
 /// [lastInputMs] forward to simulate the user producing input at that time.
-class FakeIdlePlatform
-    with MockPlatformInterfaceMixin
-    implements FlutterInactiveTimerPlatform {
+class FakeIdlePlatform extends FlutterInactiveTimerPlatform {
   int Function() nowMs = () => 0;
   int lastInputMs = 0;
 
@@ -20,9 +17,7 @@ class FakeIdlePlatform
 
 /// Fake platform that throws on the next [throwsRemaining] idle reads, to
 /// exercise the shell's transient-failure recovery path.
-class FlakyIdlePlatform
-    with MockPlatformInterfaceMixin
-    implements FlutterInactiveTimerPlatform {
+class FlakyIdlePlatform extends FlutterInactiveTimerPlatform {
   FlakyIdlePlatform(this.nowMs);
   final int Function() nowMs;
   int lastInputMs = 0;
@@ -40,15 +35,14 @@ class FlakyIdlePlatform
 
 /// A platform that overrides nothing, so it inherits the base's
 /// not-implemented behavior.
-class UnimplementedPlatform extends FlutterInactiveTimerPlatform
-    with MockPlatformInterfaceMixin {}
+class UnimplementedPlatform extends FlutterInactiveTimerPlatform {}
 
 void main() {
   final FlutterInactiveTimerPlatform initialPlatform =
       FlutterInactiveTimerPlatform.instance;
 
   test('$FfiFlutterInactiveTimer is the default instance', () {
-    expect(initialPlatform, isInstanceOf<FfiFlutterInactiveTimer>());
+    expect(initialPlatform, isA<FfiFlutterInactiveTimer>());
   });
 
   test(

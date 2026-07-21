@@ -1,5 +1,5 @@
 import 'package:flutter_inactive_timer/src/inactivity_policy.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 void main() {
   const policy = InactivityPolicy();

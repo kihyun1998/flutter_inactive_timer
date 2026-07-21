@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter_inactive_timer/flutter_inactive_timer_ffi.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 /// A stand-in [IdleSource] so the adapter can be tested without touching FFI.
 class _FakeIdleSource extends IdleSource {

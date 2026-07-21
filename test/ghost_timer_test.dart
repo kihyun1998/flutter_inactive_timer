@@ -3,14 +3,11 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer_platform_interface.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:test/test.dart';
 
 /// A platform whose idle read can be paused, so a test can hold one `_pump`
 /// mid-`await` and race another operation against it.
-class GatedIdlePlatform
-    with MockPlatformInterfaceMixin
-    implements FlutterInactiveTimerPlatform {
+class GatedIdlePlatform extends FlutterInactiveTimerPlatform {
   GatedIdlePlatform(this.nowMs);
   final int Function() nowMs;
   int lastInputMs = 0;

@@ -141,6 +141,16 @@ generation, `mounted`)를 다시 확인하고, 그 경쟁을 재현하는 테스
 
 - **#10 (새 API 는 example 에서 쓰이는지 본다)**: `NotifyBefore` 는 구현·테스트가 끝난 뒤에도
   example 에 없었고, 별도 이슈로 채웠다.
+- **#24 (머지됐다고 배포된 게 아니다 — dry-run 이 pub.dev 의 실제 상태를 알려준다)**:
+  4.0.0 을 머지한 뒤 다음 breaking 변경을 5.0.0 으로 올렸는데, `dart pub publish
+  --dry-run` 이 **`The previous version is 3.0.0`** 이라고 알려줬다. 4.0.0 은 main 에
+  있을 뿐 **pub.dev 에 올라간 적이 없었다** (배포는 사람이 하고, 아직 안 했다). 그대로
+  냈으면 3.0.0 다음이 5.0.0 이 되고 **아무도 받은 적 없는 4.0.0 이 CHANGELOG 에만
+  남았을** 것이다.
+  → 배포된 적 없는 번호를 재사용해 4.0.0 하나로 합쳤다. **버전 번호는 git 이 아니라
+  pub.dev 를 기준으로 센다.** dry-run 의 힌트는 잔소리가 아니라 레지스트리의 실제 상태를
+  읽어온 사실이다.
+
 - **`db4a8be` (`.pubignore` 가 `.gitignore` 를 무력화)**: 다른 repo 에서 복붙된
   `.pubignore` 가 존재하지도 않는 `CODE.md` 를 나열해, `.gitignore` 의 `build/` 가 아카이브에
   실렸다 — 테스트 하네스가 만든 **42 MB `flutter_windows.dll`** 포함 **64 MB** 패키지. 고친

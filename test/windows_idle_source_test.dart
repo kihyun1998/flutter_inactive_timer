@@ -1,5 +1,5 @@
 import 'package:flutter_inactive_timer/flutter_inactive_timer_ffi.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 /// The largest value the 32-bit last-input tick can hold, i.e. the instant
 /// before it wraps back to zero.

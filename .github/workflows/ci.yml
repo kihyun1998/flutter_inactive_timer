@@ -16,25 +16,42 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: subosito/flutter-action@v2
+      # No Flutter here at all. The package is pure Dart since 5.0.0
+      # (ADR-0005), and setting up Flutter anyway would let a Flutter-only
+      # dependency creep back in without the gate noticing.
+      - uses: dart-lang/setup-dart@v1
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
+          sdk: stable
 
-      - run: flutter --version
+      - run: dart --version
 
+      # `--no-example` matters here: `pub get` otherwise also resolves
+      # `example/`, which is a Flutter app, and this job has no Flutter SDK by
+      # design. Without the flag the job fails before it reaches any gate.
       - name: Install dependencies
-        run: flutter pub get
+        run: dart pub get --no-example
 
+      # Checks every Dart file including the examples' — formatting needs no
+      # package resolution. It does print a resolution warning for
+      # `example/analysis_options.yaml`, which pulls in flutter_lints that this
+      # job deliberately cannot see; that warning is expected and not a failure.
       - name: Format check
         run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze
-        run: flutter analyze
+        run: dart analyze
 
       - name: Test
-        run: flutter test --coverage
+        run: dart test --coverage=coverage
+
+      # `--check-ignore` is load-bearing: without it the `coverage:ignore`
+      # regions around the FFI plumbing — which cannot execute on this host —
+      # land in the denominator and sink the gate below.
+      - name: Format coverage
+        run: |
+          dart run coverage:format_coverage \
+            --lcov --check-ignore \
+            --in=coverage --out=coverage/lcov.info --report-on=lib
 
       # Self-contained coverage gate — no external service. Fails the build if
       # line coverage drops below the threshold.
@@ -67,6 +84,17 @@ jobs:
         working-directory: example
         run: flutter test integration_test -d windows
 
+      # Proves the package is usable with no Flutter in the picture at all —
+      # a plain `dart run` against a pure-Dart consumer (ADR-0005). It exits on
+      # its own timeout, so a hang here is a real failure.
+      - name: Dart CLI example
+        timeout-minutes: 2
+        working-directory: example_cli
+        run: |
+          dart pub get
+          dart analyze
+          dart run bin/main.dart
+
   macos:
     name: macOS
     runs-on: macos-latest
@@ -93,3 +121,14 @@ jobs:
       - name: Idle source
         working-directory: example
         run: flutter test integration_test -d macos
+
+      # Proves the package is usable with no Flutter in the picture at all —
+      # a plain `dart run` against a pure-Dart consumer (ADR-0005). It exits on
+      # its own timeout, so a hang here is a real failure.
+      - name: Dart CLI example
+        timeout-minutes: 2
+        working-directory: example_cli
+        run: |
+          dart pub get
+          dart analyze
+          dart run bin/main.dart

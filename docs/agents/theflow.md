@@ -21,20 +21,22 @@ re-check every state you read at the resume point** — `isMonitoring`,
 
 ## Crate / module map
 
-**Pure-Dart package, no native code** since 4.0.0 (ADR-0004) — the `windows/`
-and `macos/` trees, their gtest/XCTest harnesses and the plugin declaration are
-all gone. The FFI bindings are the one thing the Dart CI job cannot see, so
-they are covered on-device instead (Step 7).
+**Pure Dart, no native code and no Flutter dependency** — 4.0.0 deleted the
+`windows/`/`macos/` trees, their gtest/XCTest harnesses and the plugin
+declaration (ADR-0004); 4.0.0 also dropped `flutter` and `plugin_platform_interface`
+themselves (ADR-0005). The FFI bindings are the one thing the Dart CI job cannot
+see, so they are covered on-device instead (Step 7).
 
 | Module | Role |
 |---|---|
 | `lib/flutter_inactive_timer.dart` | `FlutterInactiveTimer` — the **imperative shell**: start/stop/continue, the timer, the platform read, `remaining()`, the generation counter |
-| `lib/flutter_inactive_timer_platform_interface.dart` | the `plugin_platform_interface` (`^2.0.2`) surface; its default instance is the FFI adapter |
+| `lib/flutter_inactive_timer_platform_interface.dart` | the seam — a plain abstract class since 4.0.0; default instance is the FFI adapter. **Extend, never implement** (the runtime token that enforced this is gone) |
 | `lib/flutter_inactive_timer_ffi.dart` | `FfiFlutterInactiveTimer` — the FFI platform adapter, plus the public surface of the sources |
 | `lib/src/ffi/` | one `IdleSource` per binding, one file each; `idle_sources.dart` resolves them **as a pure function of the OS name** so every arm is testable off-host. Each binding keeps its arithmetic and failure rule in a pure static, leaving only decision-free plumbing under `coverage:ignore` |
 | `lib/src/inactivity_policy.dart` | **`InactivityPolicy`** — the pure **functional core** (decision rule) + sealed `InactivityDecision` |
 | `lib/src/notification_trigger.dart` | sealed **`NotificationTrigger`** (`NotifyAtPercent` / `NotifyBefore`) |
 | `example/integration_test/` | the **only** place an FFI binding executes — asserts the idle clock advances in step with wall-clock time while there is no input |
+| `example_cli/` | a Flutter-free consumer, run by CI on both desktops so the pure-Dart claim cannot quietly stop being true |
 
 ## Step 1 — reference routing table
 
@@ -105,14 +107,23 @@ they are covered on-device instead (Step 7).
 
 ## Step 7 — gate matrix (three CI jobs, Flutter pinned)
 
-**Dart (ubuntu):**
+**Dart (ubuntu) — installs no Flutter, deliberately, so a Flutter-only
+dependency cannot creep back unnoticed:**
 ```
-flutter pub get
+dart pub get
 dart format --output=none --set-exit-if-changed .
-flutter analyze
-flutter test --coverage
+dart analyze
+dart test --coverage=coverage
+dart run coverage:format_coverage --lcov --check-ignore …   # --check-ignore is load-bearing
 awk … coverage/lcov.info      # line coverage < 90% fails — self-contained, no Codecov
 ```
+- **`--check-ignore` or the gate collapses.** Without it the `coverage:ignore`
+  regions around the FFI plumbing — unreachable on Linux — re-enter the
+  denominator.
+- **A sub-package without its own `analysis_options.yaml` breaks root `dart
+  format`**: it falls back to the root file and cannot resolve `package:lints`
+  from its own package config. `example_cli/` carries its own copy for that
+  reason.
 **Windows / macOS:** `cd example && flutter test integration_test -d <windows|macos>`
 (macOS also builds the app first — that build *is* a consumer's build, and it
 runs the bindings under the example's App Sandbox).

@@ -1,6 +1,6 @@
 # Flutter Inactive Timer
 
-A cross-platform (macOS, Windows) Flutter package that detects user inactivity — no keyboard or mouse input — and fires callbacks at a warning threshold and at timeout.
+A cross-platform (macOS, Windows) **pure Dart** package that detects user inactivity — no keyboard or mouse input — and fires callbacks at a warning threshold and at timeout.
 
 ## Language
 

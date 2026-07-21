@@ -2,13 +2,15 @@
 
 ### Breaking
 
-- **This is no longer a Flutter plugin — it is an ordinary package.** The idle
-  duration is now read straight from the OS through `dart:ffi` instead of a
-  method channel, so the package ships no Swift, C++, podspec or CMake, and
-  your build has nothing native to compile. See ADR-0004.
+- **No longer a Flutter plugin, and no longer a Flutter package at all — this
+  is now a pure Dart package.** The idle duration is read straight from the OS
+  through `dart:ffi` instead of a method channel, so the package ships no
+  Swift, C++, podspec or CMake, and depends on neither `flutter` nor
+  `plugin_platform_interface`. See ADR-0004 and ADR-0005.
 
-  **No source changes are required.** `FlutterInactiveTimer`, its callbacks and
-  `remaining()` are all unchanged, and they return the same values as before.
+  **No source changes for typical use.** `FlutterInactiveTimer`, its callbacks
+  and `remaining()` are unchanged and return the same values, and the package
+  keeps its name.
 
   Migration:
   ```
@@ -17,32 +19,58 @@
   A stale build directory can still carry the old plugin registration, which
   now has nothing to register.
 
-- `MethodChannelFlutterInactiveTimer` is removed. It only matters if you wrote
-  your own platform implementation: the seam is unchanged — implement
-  `getIdleDuration()` on `FlutterInactiveTimerPlatform` — but the built-in
-  method-channel implementation it sat next to is gone.
+  The upside beyond a smaller build: the timer now works in a Dart CLI or
+  server program as well as a Flutter app.
+
+- `MethodChannelFlutterInactiveTimer` is removed, and
+  `FlutterInactiveTimerPlatform` is a plain abstract class rather than a
+  `PlatformInterface`. Both only matter if you wrote your own platform:
+
+  ```dart
+  // 3.x
+  class MyPlatform with MockPlatformInterfaceMixin
+      implements FlutterInactiveTimerPlatform { ... }
+  // 4.0.0
+  class MyPlatform extends FlutterInactiveTimerPlatform { ... }
+  ```
+
+  The seam itself is unchanged — implement `getIdleDuration()`. **Extend the
+  class, do not implement it:** `getIdleDuration()` has a default body, so an
+  `extends` subclass keeps compiling if the interface ever gains a member. The
+  runtime token that used to enforce this went with
+  `plugin_platform_interface`; breaking the rule is now a compile error instead
+  of a silent one.
 
 ### Why this is safe
 
 Both implementations were built side by side and read in the same batch on real
 machines before the native code was deleted. They reported the same value to the
-millisecond on Windows and on macOS, under the example app's App Sandbox. The
-CI runs that established this are recorded in ADR-0004, along with a rejected
-macOS alternative that was ~9ms off and did not ship.
+millisecond on Windows and on macOS, the latter under the example app's App
+Sandbox. The CI runs that established this are recorded in ADR-0004, along with
+a rejected macOS alternative that was ~9ms off and did not ship.
+
+### Added
+
+- `example_cli/` — the same timer as a command-line program, run with
+  `dart run` and no Flutter SDK involved. CI runs it on Windows and macOS, so
+  the Flutter-free claim stays honest.
 
 ### Internal
 
-- Adds `FfiFlutterInactiveTimer` and one named `IdleSource` per platform
-  binding: `GetLastInputInfo`/`GetTickCount64` on Windows, IOKit `HIDIdleTime`
-  on macOS. Each binding's arithmetic and failure rule are pure functions, unit
-  tested on any host; only the irreducible FFI plumbing is platform-bound.
+- One named `IdleSource` per platform binding:
+  `GetLastInputInfo`/`GetTickCount64` on Windows, IOKit `HIDIdleTime` on macOS.
+  Each binding's arithmetic and failure rule are pure functions, unit tested on
+  any host; only the irreducible FFI plumbing is platform-bound.
 - The example app's `Idle Source` tab and an on-device integration test are the
   only places the bindings execute — the Dart CI job runs on Linux and opens
   neither `user32.dll` nor IOKit. The test asserts the idle clock advances in
   step with wall-clock time while there is no input, which catches a binding
   reporting the wrong unit.
-- The native CI jobs (gtest on Windows, XCTest on macOS) are removed along with
-  the code they tested.
+- Tests run on `dart test` with `package:test`; coverage comes from
+  `dart test --coverage` and `package:coverage`. The Dart CI job installs no
+  Flutter at all, so a Flutter-only dependency cannot creep back unnoticed. The
+  native CI jobs (gtest, XCTest) are gone with the code they tested.
+- Linting moved from `flutter_lints` to `lints`.
 
 ## 3.0.0
 

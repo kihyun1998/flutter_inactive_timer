@@ -1,0 +1,18 @@
+name: flutter_inactive_timer_cli_example
+description: "Minimal Dart CLI demo — the same timer, with no Flutter anywhere."
+publish_to: 'none'
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+# No flutter dependency, and none arrives transitively. That is the point of
+# this example: since 4.0.0 the package is pure Dart (ADR-0005), so it runs in
+# a plain `dart run` with no Flutter SDK involved.
+dependencies:
+  flutter_inactive_timer:
+    path: ../
+
+dev_dependencies:
+  # So this package resolves the same lint set as the root one; without it the
+  # root `analysis_options.yaml` cannot be resolved from inside this directory.
+  lints: ^5.0.0

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/kihyun1998/flutter_inactive_timer/actions/workflows/ci.yml/badge.svg)](https://github.com/kihyun1998/flutter_inactive_timer/actions/workflows/ci.yml)
 
-A Flutter package for detecting user inactivity in desktop applications (Windows and macOS). It reads the idle duration straight from the OS through `dart:ffi` — no native plugin code to build. It provides customizable timeout and notification thresholds, making it ideal for implementing security features like automatic logout or session timeouts.
+A **pure Dart** package for detecting user inactivity on desktop (Windows and macOS). It reads the idle duration straight from the OS through `dart:ffi` — no native code to build, and no Flutter required, so it works in a Flutter app *and* in a Dart CLI or server program. It provides customizable timeout and notification thresholds, making it ideal for implementing security features like automatic logout or session timeouts.
 
 ## Features
  
@@ -24,7 +24,7 @@ dependencies:
   flutter_inactive_timer: ^4.0.0
 ```
 
-> **Upgrading from 3.x?** See [Migrating to 4.0.0](#migrating-to-400) below — no code changes, but do a clean build.
+> **Upgrading from 3.x?** See [Migrating to 4.0.0](#migrating-to-400) below — no code changes for typical use, but do a clean build.
 
 ## Usage
 
@@ -318,19 +318,39 @@ for the design rationale.
 
 ## Migrating to 4.0.0
 
-**No code changes.** The `FlutterInactiveTimer` constructor, its callbacks and
-`remaining()` are all unchanged, and the values you get back are the same.
+**No code changes for typical use.** The `FlutterInactiveTimer` constructor, its
+callbacks and `remaining()` are all unchanged, the values you get back are the
+same, and the package keeps its name.
 
-What changed is underneath: the idle duration is now read through `dart:ffi`
-instead of a method channel, so the package ships no Swift or C++ and is no
-longer a Flutter *plugin* — just a package. Two consequences:
+What changed is underneath. The idle duration is read through `dart:ffi`
+instead of a method channel, so the package ships no Swift or C++ and no longer
+depends on Flutter at all — it is a plain Dart package now, which means the same
+timer also runs in a Dart CLI or server program. See
+[`example_cli/`](https://github.com/kihyun1998/flutter_inactive_timer/tree/main/example_cli),
+[ADR-0004](https://github.com/kihyun1998/flutter_inactive_timer/blob/main/docs/adr/0004-idle-duration-over-ffi.md)
+and [ADR-0005](https://github.com/kihyun1998/flutter_inactive_timer/blob/main/docs/adr/0005-pure-dart-package.md).
+
+Two things to do:
 
 - **Do a clean build** (`flutter clean`, then rebuild). A stale build directory
-  can still hold the old plugin registration, which now has nothing to
-  register.
-- **Only if you wrote a custom platform implementation:** nothing moved, but
-  the built-in `MethodChannelFlutterInactiveTimer` is gone. `getIdleDuration()`
-  on `FlutterInactiveTimerPlatform` is still the seam to implement.
+  can still hold the old plugin registration, which now has nothing to register.
+- **Only if you wrote your own platform implementation:**
+  `MethodChannelFlutterInactiveTimer` is gone, and `FlutterInactiveTimerPlatform`
+  is a plain abstract class:
+
+  ```dart
+  // 3.x
+  class MyPlatform with MockPlatformInterfaceMixin
+      implements FlutterInactiveTimerPlatform { ... }
+  // 4.0.0
+  class MyPlatform extends FlutterInactiveTimerPlatform { ... }
+  ```
+
+  The seam is otherwise unchanged — implement `getIdleDuration()`. **Extend the
+  class, do not implement it:** `getIdleDuration()` has a default body, so an
+  `extends` subclass keeps compiling if the interface ever gains a member. The
+  runtime check that enforced this went with `plugin_platform_interface`;
+  breaking the rule is now a compile error instead of a silent one.
 
 ## Migrating to 2.0.0
 

@@ -75,6 +75,14 @@ jobs:
       - name: Test
         run: ctest --test-dir build/win-test --output-on-failure
 
+      # The Dart job runs on Linux and never loads user32.dll, so it sees none
+      # of the FFI binding — only the arithmetic underneath it. Agreement
+      # between the FFI source and the method channel can only be asserted on a
+      # real Windows host, which is here (ADR-0004).
+      - name: Idle parity
+        working-directory: example
+        run: flutter test integration_test -d windows
+
   macos:
     name: macOS
     runs-on: macos-latest

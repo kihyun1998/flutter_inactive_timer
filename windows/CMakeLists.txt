@@ -67,10 +67,18 @@ set(TEST_RUNNER "${PROJECT_NAME}_test")
 enable_testing()
 
 # Add the Google Test dependency.
+#
+# Pinned to the same release as the standalone harness in test/CMakeLists.txt,
+# and not lower: googletest 1.11.0 declares `cmake_minimum_required(2.8.12)`,
+# and CMake 4 removed compatibility below 3.5 outright — not a warning, a hard
+# configure error. That only surfaces when the *example app* is built, since
+# that is what sets the variable guarding this block, so it stayed hidden until
+# CI started building the example on Windows. Both harnesses now fetch the same
+# release, which configures on CMake 4 with a deprecation warning.
 include(FetchContent)
 FetchContent_Declare(
   googletest
-  URL https://github.com/google/googletest/archive/release-1.11.0.zip
+  URL https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip
 )
 # Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)

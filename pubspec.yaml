@@ -14,6 +14,13 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
+  # Native memory allocation for the FFI idle-duration bindings (ADR-0004).
+  # dart:ffi can declare a struct but cannot allocate one; `calloc` is the
+  # standard allocator for that, published by the Dart team.
+  ffi: ^2.1.0
+  # Already present transitively via flutter; named explicitly because the FFI
+  # sources import it directly, and because it must survive dropping flutter.
+  meta: ^1.15.0
 
 dev_dependencies:
   flutter_test:

@@ -9,6 +9,10 @@
 - Adds a parity harness that reads every available source in one batch and
   compares them: an `Idle Parity` tab in the example app, and an integration
   test that bounds their spread by how long the batch took.
+- Implements the Windows binding (`GetLastInputInfo` against `GetTickCount64`),
+  reproducing the retired C++ arithmetic including its 32-bit wraparound
+  handling. Verified against the method channel on a real Windows host; the
+  parity test now runs in the Windows CI job. Still not the default platform.
 
 ## 3.0.0
 

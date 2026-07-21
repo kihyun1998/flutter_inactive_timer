@@ -23,8 +23,12 @@ _Avoid_: notification mode, threshold type
 The mode (`requireExplicitContinue`) in which, after a Notification, only a `continueSession` call resets the timer — user input alone is ignored.
 
 **Idle duration**:
-Milliseconds since the user's last keyboard or mouse input, computed natively per platform and returned as a single value. The one time quantity the rest of the system reasons about — see ADR-0001.
+Milliseconds since the user's last keyboard or mouse input, computed per platform and returned as a single value — never two clock readings for Dart to subtract. The one time quantity the rest of the system reasons about. See ADR-0001 for the single-value contract and ADR-0004 for how the value is read.
 _Avoid_: inactive time, elapsed time
+
+**IdleSource**:
+One concrete way of reading the Idle duration out of the operating system — a named binding, e.g. `windows/GetLastInputInfo`. Synchronous, since an FFI call has no suspension point. More than one can exist for the same platform while two candidate bindings are being compared; the parity check is what decides between them. See ADR-0004.
+_Avoid_: provider, backend, reader
 
 **InactivityPolicy**:
 The pure decision rule that, given the current values (idle duration, config, whether a Notification already fired), returns an InactivityDecision. Side-effect free — owns no timer and makes no platform calls.

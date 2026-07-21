@@ -17,6 +17,10 @@
   the same registry path the retired Swift did. The parity test now runs in the
   macOS CI job too, under the example app's App Sandbox. The second candidate
   and the choice between them are separate changes.
+- Implements the second macOS candidate binding (CoreGraphics
+  `CGEventSourceSecondsSinceLastEventType`). The macOS parity run now compares
+  three readers — method channel, IOKit and CoreGraphics — which is the
+  measurement the choice between the candidates will be made from.
 
 ## 3.0.0
 

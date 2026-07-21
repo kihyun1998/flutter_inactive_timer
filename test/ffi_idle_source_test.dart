@@ -60,32 +60,37 @@ void main() {
     });
   });
 
-  // Sources whose binding has not been written yet throw until their own
-  // ticket lands. The message has to name the source, or a runtime failure on
-  // a user's machine says only "unsupported" with no clue which binding is
-  // missing. Landed bindings have their own test file.
-  group('scaffolded sources', () {
-    final pending = <String, IdleSource>{
-      'macos/CoreGraphics': const MacOsCoreGraphicsIdleSource(),
-      'unsupported OS': const UnsupportedIdleSource('linux'),
-    };
-
-    pending.forEach((label, source) {
-      test('$label reports itself unsupported and throws, naming itself', () {
-        // The two go together: a source that says it is supported but throws
-        // would make the parity harness include it and then fail on it.
-        expect(source.isSupported, isFalse);
-        expect(
-          source.idleMilliseconds,
-          throwsA(
-            isA<UnsupportedError>().having(
-              (e) => e.message,
-              'message',
-              contains(source.name),
-            ),
+  // Every binding now exists, so the only unsupported source left is the one
+  // standing in for a platform this package does not cover. Its message has to
+  // name the platform, or a user on Linux gets a bare "unsupported" with
+  // nothing to act on.
+  group('unsupported platforms', () {
+    test('report themselves unsupported and throw, naming the platform', () {
+      // The two go together: a source that claims to be supported but throws
+      // would make the parity harness include it and then fail on it.
+      const source = UnsupportedIdleSource('linux');
+      expect(source.isSupported, isFalse);
+      expect(
+        source.idleMilliseconds,
+        throwsA(
+          isA<UnsupportedError>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('linux'), contains('Windows and macOS')),
           ),
-        );
-      });
+        ),
+      );
+    });
+
+    test('every source for a supported OS claims to be supported', () {
+      // The inverse of the check above, and the invariant the parity harness
+      // relies on when it filters by isSupported. If a binding is ever removed,
+      // this fails here rather than as a confusing skip in the integration run.
+      for (final os in ['windows', 'macos']) {
+        for (final source in idleSourcesFor(os)) {
+          expect(source.isSupported, isTrue, reason: '${source.name} on $os');
+        }
+      }
     });
 
     test('toString carries the name, so failures identify the binding', () {

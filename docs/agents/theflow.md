@@ -28,7 +28,9 @@ separately (Step 7).
 |---|---|
 | `lib/flutter_inactive_timer.dart` | `FlutterInactiveTimer` — the **imperative shell**: start/stop/continue, the timer, the channel, `remaining()`, the generation counter |
 | `lib/flutter_inactive_timer_platform_interface.dart` | the `plugin_platform_interface` (`^2.0.2`) surface |
-| `lib/flutter_inactive_timer_method_channel.dart` | the method-channel implementation |
+| `lib/flutter_inactive_timer_method_channel.dart` | the method-channel implementation — **being replaced** (ADR-0004) |
+| `lib/flutter_inactive_timer_ffi.dart` | `FfiFlutterInactiveTimer` — the FFI platform adapter, plus the public surface of the sources |
+| `lib/src/ffi/` | one `IdleSource` per binding, one file each so per-platform tickets never collide; `idle_sources.dart` resolves them **as a pure function of the OS name** so every arm is testable off-host |
 | `lib/src/inactivity_policy.dart` | **`InactivityPolicy`** — the pure **functional core** (decision rule) + sealed `InactivityDecision` |
 | `lib/src/notification_trigger.dart` | sealed **`NotificationTrigger`** (`NotifyAtPercent` / `NotifyBefore`) |
 | `windows/` | C++ (`GetTickCount64`, `GetLastInputInfo`) + a **gtest** harness |
@@ -39,6 +41,7 @@ separately (Step 7).
 | Change type | Real source to read |
 |---|---|
 | **Native inactivity read** | the **native API docs/source** directly. `GetLastInputInfo.dwTime` is a **32-bit** value that **wraps every ~49.7 days** — Dart-side subtraction after that returns garbage; macOS `systemUptime` happens to share a base (ADR-0001). Verify per platform, do not assume symmetry |
+| **FFI binding** | the **OS symbol's own docs** for signature, units and ownership; then prove it against the implementation being replaced with the parity harness (`example/integration_test/idle_parity_test.dart`) rather than by reading. **Agreement is the assertion, not correctness** — that is what makes it valid on an unattended CI runner (ADR-0004) |
 | **Plugin plumbing** | the `plugin_platform_interface` package + the federated-plugin pattern |
 | **Published state** | `curl -s https://pub.dev/api/packages/flutter_inactive_timer` |
 

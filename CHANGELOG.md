@@ -1,3 +1,15 @@
+## Unreleased
+
+### Internal
+
+- Groundwork for reading the idle duration through `dart:ffi` instead of a
+  method channel (ADR-0004). Adds `FfiFlutterInactiveTimer` and one named
+  `IdleSource` per platform binding, none implemented yet — the default
+  platform is still the method channel and no public API or behavior changes.
+- Adds a parity harness that reads every available source in one batch and
+  compares them: an `Idle Parity` tab in the example app, and an integration
+  test that bounds their spread by how long the batch took.
+
 ## 3.0.0
 
 ### Breaking

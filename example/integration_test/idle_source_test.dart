@@ -65,13 +65,30 @@ void main() {
                   'small enough to be mistaken for a reset every time.',
             );
 
-            final stopwatch = Stopwatch()..start();
+            // Two windows, because a read is not instantaneous and the growth
+            // is measured between the instants the two reads *sampled*, which
+            // is somewhere inside them. The IOKit walk in particular builds a
+            // whole property dictionary and costs a few milliseconds.
+            //
+            // The outer window (start of the first read to end of the second)
+            // is an upper bound on the sample gap; the inner one (the delay
+            // alone, between the reads) is a lower bound. The true gap is
+            // between them, so bounding the growth by both needs no constant
+            // for how expensive a read happens to be.
+            //
+            // Windows never showed this: its 16 ms tick allowance was wide
+            // enough to hide the read cost. macOS, reporting nanoseconds with a
+            // 2 ms allowance, put it 5 ms outside.
+            final outer = Stopwatch()..start();
             final before = source.idleMilliseconds();
+            final inner = Stopwatch()..start();
             await Future<void>.delayed(_observation);
+            inner.stop();
             final after = source.idleMilliseconds();
-            stopwatch.stop();
+            outer.stop();
 
-            final elapsed = stopwatch.elapsedMilliseconds;
+            final lowerBound = inner.elapsedMilliseconds - _clockGranularityMs;
+            final upperBound = outer.elapsedMilliseconds + _clockGranularityMs;
             final growth = after - before;
 
             // Input during the window resets the clock, and the observation
@@ -86,19 +103,18 @@ void main() {
             // this window. A short growth with a large reading has no such
             // explanation and is the binding being wrong, so it falls through
             // to the assertion.
-            final shortGrowth = growth < elapsed - _clockGranularityMs;
-            final couldHaveResetInWindow =
-                after <= elapsed + _clockGranularityMs;
+            final shortGrowth = growth < lowerBound;
+            final couldHaveResetInWindow = after <= upperBound;
             if (shortGrowth && couldHaveResetInWindow) continue;
 
             expect(before, greaterThanOrEqualTo(0));
             expect(
               growth,
-              closeTo(elapsed, _clockGranularityMs.toDouble()),
-              reason: '${source.name}: idle grew by ${growth}ms while '
-                  '${elapsed}ms of wall-clock time passed. A binding reporting '
-                  'the wrong unit lands far outside this; a stuck clock reads '
-                  'zero.',
+              inInclusiveRange(lowerBound, upperBound),
+              reason: '${source.name}: idle grew by ${growth}ms across a gap '
+                  'that was between ${inner.elapsedMilliseconds}ms and '
+                  '${outer.elapsedMilliseconds}ms. A binding reporting the '
+                  'wrong unit lands far outside that; a stuck clock reads zero.',
             );
             break;
           }

@@ -13,10 +13,11 @@
   reproducing the retired C++ arithmetic including its 32-bit wraparound
   handling. Verified against the method channel on a real Windows host; the
   parity test now runs in the Windows CI job. Still not the default platform.
-- Implements the first macOS candidate binding (IOKit `HIDIdleTime`), walking
-  the same registry path the retired Swift did. The parity test now runs in the
-  macOS CI job too, under the example app's App Sandbox. The second candidate
-  and the choice between them are separate changes.
+- Implements the macOS binding (IOKit `HIDIdleTime`), walking the same registry
+  path the retired Swift did. The parity test now runs in the macOS CI job too,
+  under the example app's App Sandbox. A CoreGraphics alternative was measured
+  against it on CI and rejected for reporting ~9ms more idle; see ADR-0004.
+  Still not the default platform.
 
 ## 3.0.0
 

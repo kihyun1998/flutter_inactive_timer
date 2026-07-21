@@ -4,7 +4,6 @@ import 'package:flutter_inactive_timer/src/ffi/idle_sources.dart';
 
 export 'package:flutter_inactive_timer/src/ffi/idle_source.dart';
 export 'package:flutter_inactive_timer/src/ffi/idle_sources.dart';
-export 'package:flutter_inactive_timer/src/ffi/macos_core_graphics_idle_source.dart';
 export 'package:flutter_inactive_timer/src/ffi/macos_iokit_idle_source.dart';
 export 'package:flutter_inactive_timer/src/ffi/windows_idle_source.dart';
 

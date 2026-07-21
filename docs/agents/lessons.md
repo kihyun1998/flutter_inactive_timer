@@ -96,6 +96,18 @@ generation, `mounted`)를 다시 확인하고, 그 경쟁을 재현하는 테스
 
 ## Step 6/7 — 정합성 & 게이트
 
+- **#19 (게이트가 안 밟던 경로에 잠복 결함이 있었다)**: Windows 잡에 `flutter test
+  integration_test -d windows` 를 추가하자 CI 가 깨졌다 — 통합 테스트가 아니라 그 앞의
+  CMake 생성에서. `windows/CMakeLists.txt` 의 gtest 블록이 googletest **1.11.0**
+  (`cmake_minimum_required(2.8.12)`)을 pin 하고 있었고, **CMake 4 는 3.5 미만 호환을
+  경고가 아니라 하드 에러로 제거**했다. 이 블록은 *example 앱을 빌드할 때만* 켜지는데
+  (그 변수를 example 이 세팅한다), CI 가 example 의 Windows 앱을 빌드한 적이 한 번도
+  없어서 지금까지 안 보였다. 로컬 CMake 는 4.0 미만이라 재현도 안 됐다.
+  → 독립 하네스(`windows/test/`)가 쓰던 **1.12.1 로 통일**해서 해결. 판단 근거는 추측이
+  아니라 **같은 CI 실행 안에 있었다** — 동일 러너에서 1.12.1 은 설정 성공(경고만),
+  1.11.0 은 실패. **CI 에 새 단계를 추가하는 것은 새 코드를 검증하는 일이자, 그 단계가
+  처음 밟는 경로를 검증하는 일이기도 하다.**
+
 - **#10 (새 API 는 example 에서 쓰이는지 본다)**: `NotifyBefore` 는 구현·테스트가 끝난 뒤에도
   example 에 없었고, 별도 이슈로 채웠다.
 - **`db4a8be` (`.pubignore` 가 `.gitignore` 를 무력화)**: 다른 repo 에서 복붙된

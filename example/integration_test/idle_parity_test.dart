@@ -24,8 +24,17 @@ import 'package:integration_test/integration_test.dart';
 /// clean runs reported identical values. A real disagreement between bindings
 /// would not cluster on the tick size.
 ///
-/// Elsewhere the idle time is reported at a much finer resolution, so only the
-/// millisecond rounding needs covering.
+/// On macOS the idle time is reported in nanoseconds, so there is no coarse
+/// tick to absorb — but two millisecond conversions of it can still straddle a
+/// boundary and land 1 ms apart, and the measured window is itself truncated to
+/// whole milliseconds and so under-reports by up to 1 ms. Two covers both.
+///
+/// That figure is also measured rather than inherited: the macOS parity runs
+/// show the IOKit source and the method channel 1 ms apart in a batch that
+/// reported a zero-millisecond window, and 7 ms apart in a 19 ms one. Both sit
+/// inside the allowance with room, and the value is deliberately not larger —
+/// the CoreGraphics candidate was rejected on a ~9 ms offset (ADR-0004), which
+/// a roomier tolerance would have swallowed.
 int get _clockGranularityMs => Platform.isWindows ? 16 : 2;
 
 /// How many clean batches to require. One reading could be unlucky; a handful

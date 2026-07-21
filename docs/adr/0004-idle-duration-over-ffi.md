@@ -65,8 +65,42 @@ between them plus each binding's rounding.
   here and revisited on its own.
 - **Port to FFI, choosing each platform's binding up front.** Rejected on macOS:
   there are two plausible bindings and the argument for each is theoretical.
-  Both are implemented and measured against the implementation being replaced,
-  and the loser is deleted.
+  Both were implemented and measured against the implementation being replaced,
+  and the loser was deleted. See below.
+
+## The macOS binding: measured, not argued
+
+Two candidates were built and read in the same batch as the method channel on
+macOS CI.
+
+| batch | method channel | IOKit `HIDIdleTime` | `CGEventSource` | batch window |
+|---|---|---|---|---|
+| A | 761488 | 761495 (+7) | 761514 (**+19**) | 19 ms |
+| B | 762824 | 762825 (+1) | 762834 (**+9**) | **0 ms** |
+
+Batch B decides it. The entire batch completed inside one millisecond, and
+CoreGraphics still read **9 ms higher than IOKit** — a gap elapsed time cannot
+account for, so it is an offset rather than read ordering. Both batches point
+the same way: CoreGraphics consistently reports *more* idle, by roughly ten
+milliseconds. That is the shape of a last-event timestamp snapped down to a
+coarser grid, where an older timestamp yields a longer span.
+
+**IOKit is adopted.** It agrees with the method channel to within the gap
+between the two reads, which is what it was chosen for — it walks the same
+registry path the Swift did, so it reads the same quantity by construction.
+
+CoreGraphics was the more attractive candidate on every axis except the one
+that matters here. It is a single call with nothing to allocate and nothing to
+release, so the failure mode the IOKit walk can have — a missed release on an
+early-return path, accumulating for as long as the app runs — cannot exist in
+it. The sandbox concern against it did not materialise either: it opened and
+returned values inside the sandboxed example app with no accessibility
+permission. It lost on the only criterion this work is constrained by, which is
+that behavior stays identical.
+
+The tolerance was deliberately not widened to accommodate it. A gate loosened
+until it passes is not a gate, and the offset is precisely the signal the
+comparison existed to surface.
 
 ## Consequences
 
@@ -81,6 +115,15 @@ between them plus each binding's rounding.
   arithmetic and resolution are kept in pure functions that any host can test,
   and only the irreducible binding lines are excluded from coverage. Resolution
   takes the OS name as a parameter for exactly this reason.
+- **The macOS binding carries a leak risk the rejected candidate did not.** The
+  IOKit walk acquires an iterator, a service entry, a created property
+  dictionary and a created key string, each with its own release rule and two
+  of them deliberately *not* released — one because the callee consumes the
+  reference, one because it is borrowed. Every poll runs it, so a missed release
+  accumulates for the life of the app. Nothing in CI proves the absence of a
+  leak; the parity runs prove only that nothing is over-released, since that
+  crashes immediately. Treat this file as the one to re-read whenever macOS
+  memory growth is reported.
 - Web is unreachable — `dart:io` and `dart:ffi` are both unavailable there. This
   package was already Windows and macOS only, so nothing is lost, but the
   failure now surfaces at import rather than at plugin registration.

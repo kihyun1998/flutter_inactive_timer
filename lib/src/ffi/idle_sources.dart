@@ -1,26 +1,27 @@
 import 'dart:io' show Platform;
 
 import 'idle_source.dart';
-import 'macos_core_graphics_idle_source.dart';
 import 'macos_iokit_idle_source.dart';
 import 'windows_idle_source.dart';
 
-/// Every [IdleSource] candidate for [operatingSystem], best-first.
+/// Every [IdleSource] for [operatingSystem], best-first.
 ///
 /// Taking the OS as a parameter rather than reading [Platform] inside keeps
 /// this a pure function, so the Windows and macOS arms are exercisable from the
 /// Linux CI host. The same reason the shell takes an injected clock: a decision
 /// that depends on ambient state cannot be tested where that state differs.
 ///
-/// macOS returns **two** candidates because which one to keep is an open
-/// question that measurement, not argument, settles — see ADR-0004. Once it is
-/// settled the loser is deleted and this list becomes a single entry.
+/// A list rather than a single source because macOS briefly had two competing
+/// bindings and the parity harness needed to read both in one batch. It returns
+/// one entry per platform now — the CoreGraphics candidate was measured against
+/// IOKit on CI and lost (ADR-0004) — but the shape stays, since it is also what
+/// lets the harness compare a binding against the implementation it replaces.
 List<IdleSource> idleSourcesFor(String operatingSystem) {
   switch (operatingSystem) {
     case 'windows':
       return const [WindowsIdleSource()];
     case 'macos':
-      return const [MacOsIoKitIdleSource(), MacOsCoreGraphicsIdleSource()];
+      return const [MacOsIoKitIdleSource()];
     default:
       return [UnsupportedIdleSource(operatingSystem)];
   }

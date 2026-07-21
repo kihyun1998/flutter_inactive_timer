@@ -30,11 +30,12 @@ void main() {
       expect(sources.single, isA<WindowsIdleSource>());
     });
 
-    test('macos resolves to both candidates, IOKit first', () {
+    test('macos resolves to the single IOKit source', () {
+      // Two candidates once lived here; CoreGraphics was measured against IOKit
+      // on CI and lost, systematically reporting ~9ms more idle (ADR-0004).
       final sources = idleSourcesFor('macos');
-      expect(sources, hasLength(2));
-      expect(sources.first, isA<MacOsIoKitIdleSource>());
-      expect(sources.last, isA<MacOsCoreGraphicsIdleSource>());
+      expect(sources, hasLength(1));
+      expect(sources.single, isA<MacOsIoKitIdleSource>());
     });
 
     test('an unsupported OS resolves to a source naming that OS', () {
@@ -60,32 +61,36 @@ void main() {
     });
   });
 
-  // Sources whose binding has not been written yet throw until their own
-  // ticket lands. The message has to name the source, or a runtime failure on
-  // a user's machine says only "unsupported" with no clue which binding is
-  // missing. Landed bindings have their own test file.
-  group('scaffolded sources', () {
-    final pending = <String, IdleSource>{
-      'macos/CoreGraphics': const MacOsCoreGraphicsIdleSource(),
-      'unsupported OS': const UnsupportedIdleSource('linux'),
-    };
-
-    pending.forEach((label, source) {
-      test('$label reports itself unsupported and throws, naming itself', () {
-        // The two go together: a source that says it is supported but throws
-        // would make the parity harness include it and then fail on it.
-        expect(source.isSupported, isFalse);
-        expect(
-          source.idleMilliseconds,
-          throwsA(
-            isA<UnsupportedError>().having(
-              (e) => e.message,
-              'message',
-              contains(source.name),
-            ),
+  // Every binding now exists, so the only unsupported source left is the one
+  // standing in for a platform this package does not cover.
+  group('unsupported platforms', () {
+    test('report themselves unsupported and throw, naming the platform', () {
+      // The two go together: a source that claims to be supported but throws
+      // would make the parity harness include it and then fail on it.
+      const source = UnsupportedIdleSource('linux');
+      expect(source.isSupported, isFalse);
+      expect(
+        source.idleMilliseconds,
+        throwsA(
+          isA<UnsupportedError>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('linux'), contains('Windows and macOS')),
           ),
-        );
-      });
+        ),
+      );
+    });
+
+    test('every source for a supported OS claims to be supported', () {
+      // The inverse of the check above, and the invariant the parity harness
+      // relies on when it filters by isSupported. If a binding is ever dropped
+      // to a stub, this fails here rather than as a quiet skip in the
+      // integration run — which would look identical to a passing gate.
+      for (final os in ['windows', 'macos']) {
+        for (final source in idleSourcesFor(os)) {
+          expect(source.isSupported, isTrue, reason: '${source.name} on $os');
+        }
+      }
     });
 
     test('toString carries the name, so failures identify the binding', () {

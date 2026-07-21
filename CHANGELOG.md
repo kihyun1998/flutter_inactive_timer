@@ -1,23 +1,48 @@
-## Unreleased
+## 4.0.0
+
+### Breaking
+
+- **This is no longer a Flutter plugin — it is an ordinary package.** The idle
+  duration is now read straight from the OS through `dart:ffi` instead of a
+  method channel, so the package ships no Swift, C++, podspec or CMake, and
+  your build has nothing native to compile. See ADR-0004.
+
+  **No source changes are required.** `FlutterInactiveTimer`, its callbacks and
+  `remaining()` are all unchanged, and they return the same values as before.
+
+  Migration:
+  ```
+  flutter clean   # then rebuild
+  ```
+  A stale build directory can still carry the old plugin registration, which
+  now has nothing to register.
+
+- `MethodChannelFlutterInactiveTimer` is removed. It only matters if you wrote
+  your own platform implementation: the seam is unchanged — implement
+  `getIdleDuration()` on `FlutterInactiveTimerPlatform` — but the built-in
+  method-channel implementation it sat next to is gone.
+
+### Why this is safe
+
+Both implementations were built side by side and read in the same batch on real
+machines before the native code was deleted. They reported the same value to the
+millisecond on Windows and on macOS, under the example app's App Sandbox. The
+CI runs that established this are recorded in ADR-0004, along with a rejected
+macOS alternative that was ~9ms off and did not ship.
 
 ### Internal
 
-- Groundwork for reading the idle duration through `dart:ffi` instead of a
-  method channel (ADR-0004). Adds `FfiFlutterInactiveTimer` and one named
-  `IdleSource` per platform binding, none implemented yet — the default
-  platform is still the method channel and no public API or behavior changes.
-- Adds a parity harness that reads every available source in one batch and
-  compares them: an `Idle Parity` tab in the example app, and an integration
-  test that bounds their spread by how long the batch took.
-- Implements the Windows binding (`GetLastInputInfo` against `GetTickCount64`),
-  reproducing the retired C++ arithmetic including its 32-bit wraparound
-  handling. Verified against the method channel on a real Windows host; the
-  parity test now runs in the Windows CI job. Still not the default platform.
-- Implements the macOS binding (IOKit `HIDIdleTime`), walking the same registry
-  path the retired Swift did. The parity test now runs in the macOS CI job too,
-  under the example app's App Sandbox. A CoreGraphics alternative was measured
-  against it on CI and rejected for reporting ~9ms more idle; see ADR-0004.
-  Still not the default platform.
+- Adds `FfiFlutterInactiveTimer` and one named `IdleSource` per platform
+  binding: `GetLastInputInfo`/`GetTickCount64` on Windows, IOKit `HIDIdleTime`
+  on macOS. Each binding's arithmetic and failure rule are pure functions, unit
+  tested on any host; only the irreducible FFI plumbing is platform-bound.
+- The example app's `Idle Source` tab and an on-device integration test are the
+  only places the bindings execute — the Dart CI job runs on Linux and opens
+  neither `user32.dll` nor IOKit. The test asserts the idle clock advances in
+  step with wall-clock time while there is no input, which catches a binding
+  reporting the wrong unit.
+- The native CI jobs (gtest on Windows, XCTest on macOS) are removed along with
+  the code they tested.
 
 ## 3.0.0
 

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer.dart';
 
-import 'idle_parity_demo.dart';
+import 'idle_source_demo.dart';
 
 void main() {
   runApp(const MyApp());
@@ -44,7 +44,7 @@ class TimerDemoTabs extends StatelessWidget {
             tabs: [
               Tab(text: 'Single Mode', icon: Icon(Icons.timer)),
               Tab(text: 'Multi Mode', icon: Icon(Icons.splitscreen)),
-              Tab(text: 'Idle Parity', icon: Icon(Icons.compare_arrows)),
+              Tab(text: 'Idle Source', icon: Icon(Icons.speed)),
             ],
           ),
         ),
@@ -52,7 +52,7 @@ class TimerDemoTabs extends StatelessWidget {
           children: [
             SingleModeDemo(),
             MultiModeDemo(),
-            IdleParityDemo(),
+            IdleSourceDemo(),
           ],
         ),
       ),

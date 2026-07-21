@@ -25,9 +25,16 @@ jobs:
 
       - run: dart --version
 
+      # `--no-example` matters here: `pub get` otherwise also resolves
+      # `example/`, which is a Flutter app, and this job has no Flutter SDK by
+      # design. Without the flag the job fails before it reaches any gate.
       - name: Install dependencies
-        run: dart pub get
+        run: dart pub get --no-example
 
+      # Checks every Dart file including the examples' — formatting needs no
+      # package resolution. It does print a resolution warning for
+      # `example/analysis_options.yaml`, which pulls in flutter_lints that this
+      # job deliberately cannot see; that warning is expected and not a failure.
       - name: Format check
         run: dart format --output=none --set-exit-if-changed .
 
@@ -85,6 +92,7 @@ jobs:
         working-directory: example_cli
         run: |
           dart pub get
+          dart analyze
           dart run bin/main.dart
 
   macos:
@@ -122,4 +130,5 @@ jobs:
         working-directory: example_cli
         run: |
           dart pub get
+          dart analyze
           dart run bin/main.dart

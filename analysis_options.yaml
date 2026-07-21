@@ -1,1 +1,11 @@
 include: package:lints/recommended.yaml
+
+analyzer:
+  exclude:
+    # Separate packages, each with its own pubspec, analysis options and
+    # package config. Analysing them from here resolves their imports against
+    # *this* package, which fails — and on the Dart CI job, which installs no
+    # Flutter on purpose (ADR-0005), `example/` cannot be resolved at all.
+    # Each is analysed by a toolchain that can actually see its dependencies.
+    - example/**
+    - example_cli/**

@@ -1,11 +1,11 @@
 # Flutter Inactive Timer
 
-A cross-platform (macOS, Windows) Flutter plugin that detects user inactivity — no keyboard or mouse input — and fires callbacks at a warning threshold and at timeout.
+A cross-platform (macOS, Windows) Flutter package that detects user inactivity — no keyboard or mouse input — and fires callbacks at a warning threshold and at timeout.
 
 ## Language
 
 **Monitoring**:
-The active state in which the plugin is watching for inactivity. Started with `startMonitoring`, ended with `stopMonitoring`.
+The active state in which the timer is watching for inactivity. Started with `startMonitoring`, ended with `stopMonitoring`.
 
 **Inactive**:
 The terminal state reached when the user has produced no input for the full timeout duration. Fires `onInactiveDetected` and ends monitoring.

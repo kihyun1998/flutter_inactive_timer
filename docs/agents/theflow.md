@@ -21,20 +21,20 @@ re-check every state you read at the resume point** — `isMonitoring`,
 
 ## Crate / module map
 
-Federated Flutter **plugin** (Dart + native). No golden CI; native is tested
-separately (Step 7).
+**Pure-Dart package, no native code** since 4.0.0 (ADR-0004) — the `windows/`
+and `macos/` trees, their gtest/XCTest harnesses and the plugin declaration are
+all gone. The FFI bindings are the one thing the Dart CI job cannot see, so
+they are covered on-device instead (Step 7).
 
 | Module | Role |
 |---|---|
-| `lib/flutter_inactive_timer.dart` | `FlutterInactiveTimer` — the **imperative shell**: start/stop/continue, the timer, the channel, `remaining()`, the generation counter |
-| `lib/flutter_inactive_timer_platform_interface.dart` | the `plugin_platform_interface` (`^2.0.2`) surface |
-| `lib/flutter_inactive_timer_method_channel.dart` | the method-channel implementation — **being replaced** (ADR-0004) |
+| `lib/flutter_inactive_timer.dart` | `FlutterInactiveTimer` — the **imperative shell**: start/stop/continue, the timer, the platform read, `remaining()`, the generation counter |
+| `lib/flutter_inactive_timer_platform_interface.dart` | the `plugin_platform_interface` (`^2.0.2`) surface; its default instance is the FFI adapter |
 | `lib/flutter_inactive_timer_ffi.dart` | `FfiFlutterInactiveTimer` — the FFI platform adapter, plus the public surface of the sources |
-| `lib/src/ffi/` | one `IdleSource` per binding, one file each so per-platform tickets never collide; `idle_sources.dart` resolves them **as a pure function of the OS name** so every arm is testable off-host |
+| `lib/src/ffi/` | one `IdleSource` per binding, one file each; `idle_sources.dart` resolves them **as a pure function of the OS name** so every arm is testable off-host. Each binding keeps its arithmetic and failure rule in a pure static, leaving only decision-free plumbing under `coverage:ignore` |
 | `lib/src/inactivity_policy.dart` | **`InactivityPolicy`** — the pure **functional core** (decision rule) + sealed `InactivityDecision` |
 | `lib/src/notification_trigger.dart` | sealed **`NotificationTrigger`** (`NotifyAtPercent` / `NotifyBefore`) |
-| `windows/` | C++ (`GetTickCount64`, `GetLastInputInfo`) + a **gtest** harness |
-| `macos/` | Swift (`systemUptime`) + **xcodebuild** tests |
+| `example/integration_test/` | the **only** place an FFI binding executes — asserts the idle clock advances in step with wall-clock time while there is no input |
 
 ## Step 1 — reference routing table
 
@@ -113,17 +113,20 @@ flutter analyze
 flutter test --coverage
 awk … coverage/lcov.info      # line coverage < 90% fails — self-contained, no Codecov
 ```
-**Windows:** `flutter precache --windows` → `cmake -S windows/test` → `ctest`
-(gtest links the Flutter Windows engine + client wrapper).
-**macOS:** `cd example && flutter build macos --debug` **first** (else the missing
-`Flutter/ephemeral/*.xcfilelist` breaks the Xcode build) → `xcodebuild test`.
+**Windows / macOS:** `cd example && flutter test integration_test -d <windows|macos>`
+(macOS also builds the app first — that build *is* a consumer's build, and it
+runs the bindings under the example's App Sandbox).
 
 - **Format runs after `pub get`** — `dart format` reads the language version from
   `package_config`; this failure only reproduces in a clean `git worktree`.
-- **Coverage floor is 90, currently 97.7% (126/129)** — the 7.7 pp permits that
-  much silent regression; a coverage-lowering change says so in the PR.
+- **Coverage floor is 90, currently ~98%** — the margin permits that much silent
+  regression; a coverage-lowering change says so in the PR.
   `// coverage:ignore-*` removes lines from the **denominator** (probe: `LF` 84→83).
-- **Touch native → touch native tests.** The Dart gates see zero of `windows/`/`macos/`.
+  **Before adding one, check whether a decision is inside it** — if so the answer
+  is to lift that decision into a pure function, not to exclude it (#19).
+- **Touch an FFI binding → the Dart gates see none of it.** The ubuntu job never
+  opens `user32.dll` or IOKit; a wrong symbol name or unit is invisible until the
+  desktop jobs run. That is the whole reason `example/integration_test/` exists.
 - Release: `flutter pub publish --dry-run` **0 warnings**, no
   `build/`/`.dart_tool/`/`coverage/`/`docs/`/`.github/` in the archive — **an
   archive over a few MB means something is leaking.**

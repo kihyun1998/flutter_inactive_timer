@@ -1,6 +1,6 @@
 name: flutter_inactive_timer
 description: "Detect user inactivity on Windows and macOS desktop apps: configurable timeout, percentage or fixed-lead-time warnings, and a live countdown for auto-logout and session timeouts."
-version: 3.0.0
+version: 4.0.0
 homepage: https://github.com/kihyun1998/flutter_inactive_timer
 repository: https://github.com/kihyun1998/flutter_inactive_timer
 issue_tracker: https://github.com/kihyun1998/flutter_inactive_timer/issues
@@ -28,10 +28,6 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   fake_async: ^1.3.1
 
-flutter:
-  plugin:
-    platforms:
-      macos:
-        pluginClass: FlutterInactiveTimerPlugin
-      windows:
-        pluginClass: FlutterInactiveTimerPluginCApi
+# No `flutter: plugin:` block: the idle duration is read through `dart:ffi`
+# rather than a method channel (ADR-0004), so there is no native plugin class
+# to register and no native build for consumers.

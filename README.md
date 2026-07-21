@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/kihyun1998/flutter_inactive_timer/actions/workflows/ci.yml/badge.svg)](https://github.com/kihyun1998/flutter_inactive_timer/actions/workflows/ci.yml)
 
-A Flutter plugin for detecting user inactivity in desktop applications (Windows and macOS). This plugin provides customizable timeout and notification thresholds, making it ideal for implementing security features like automatic logout or session timeouts.
+A Flutter package for detecting user inactivity in desktop applications (Windows and macOS). It reads the idle duration straight from the OS through `dart:ffi` — no native plugin code to build. It provides customizable timeout and notification thresholds, making it ideal for implementing security features like automatic logout or session timeouts.
 
 ## Features
  
@@ -21,10 +21,10 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_inactive_timer: ^3.0.0
+  flutter_inactive_timer: ^4.0.0
 ```
 
-> **Upgrading from 2.x?** See [Migrating to 3.0.0](#migrating-to-300) below.
+> **Upgrading from 3.x?** See [Migrating to 4.0.0](#migrating-to-400) below — no code changes, but do a clean build.
 
 ## Usage
 
@@ -116,7 +116,7 @@ final inactivityTimer = FlutterInactiveTimer(
 When does it fire?
 
 - `requireExplicitContinue: false` (default): fires automatically as soon as the
-  plugin detects fresh input (bounded to a ~500ms detection latency).
+  timer detects fresh input (bounded to a ~500ms detection latency).
 - `requireExplicitContinue: true`: fires when you call `continueSession()`.
 
 It does **not** fire if no notification was pending (for example, resetting the
@@ -168,7 +168,7 @@ the countdown resets when the user is active, and stays correct in
 `requireExplicitContinue` lock (where computing `timeout - idle` yourself would
 not). It returns `Duration.zero` when not monitoring.
 
-It is a **pull** API: the plugin keeps no ticker of its own, so drive it from
+It is a **pull** API: the timer keeps no ticker of its own, so drive it from
 your own periodic timer and repaint at whatever cadence you like.
 
 ```dart
@@ -191,7 +191,7 @@ void dispose() {
 ```
 
 Prefer a `Stream` (e.g. for a `StreamBuilder`)? Wrap the same call — no extra
-plugin API needed:
+API needed:
 
 ```dart
 final countdown = Stream.periodic(
@@ -254,16 +254,20 @@ Check the `/example` directory for a complete example application demonstrating 
 
 ## How It Works
 
-Each platform computes an **idle duration** — the milliseconds since the user's
-last keyboard or mouse input — and exposes it to Dart through a single
-`getIdleDuration()` method channel call:
+Everything is derived from one number: the **idle duration**, the milliseconds
+since the user's last keyboard or mouse input. Dart reads it straight from the
+operating system through `dart:ffi` — there is no native plugin code and
+nothing for your build to compile:
 
-- On Windows, it derives idle time from the Win32 `GetLastInputInfo` and
-  `GetTickCount64` APIs.
-- On macOS, it reads IOKit's `HIDIdleTime`.
+- On Windows, from the Win32 `GetLastInputInfo` and `GetTickCount64` APIs.
+- On macOS, from IOKit's `HIDIdleTime`.
 
-The Dart side never subtracts two separate clock readings, which avoids a class
-of wraparound bugs (see [ADR-0001](https://github.com/kihyun1998/flutter_inactive_timer/blob/main/docs/adr/0001-idle-duration-channel-contract.md)).
+Dart never subtracts two separate clock readings, which avoids a class of
+wraparound bugs (see [ADR-0001](https://github.com/kihyun1998/flutter_inactive_timer/blob/main/docs/adr/0001-idle-duration-channel-contract.md)).
+Until `4.0.0` these calls lived in Swift and C++ behind a method channel; both
+implementations were run side by side on real machines and shown to report the
+same value before the native code was deleted (see [ADR-0004](https://github.com/kihyun1998/flutter_inactive_timer/blob/main/docs/adr/0004-idle-duration-over-ffi.md)).
+
 The scheduling and notification rules live in a pure, unit-tested
 `InactivityPolicy`.
 
@@ -311,6 +315,22 @@ You can also now schedule the notification a fixed time before the timeout with
 `NotifyBefore(Duration(...))` — see [Notification Timing](#notification-timing).
 See [ADR-0002](https://github.com/kihyun1998/flutter_inactive_timer/blob/main/docs/adr/0002-notification-trigger-and-duration.md)
 for the design rationale.
+
+## Migrating to 4.0.0
+
+**No code changes.** The `FlutterInactiveTimer` constructor, its callbacks and
+`remaining()` are all unchanged, and the values you get back are the same.
+
+What changed is underneath: the idle duration is now read through `dart:ffi`
+instead of a method channel, so the package ships no Swift or C++ and is no
+longer a Flutter *plugin* — just a package. Two consequences:
+
+- **Do a clean build** (`flutter clean`, then rebuild). A stale build directory
+  can still hold the old plugin registration, which now has nothing to
+  register.
+- **Only if you wrote a custom platform implementation:** nothing moved, but
+  the built-in `MethodChannelFlutterInactiveTimer` is gone. `getIdleDuration()`
+  on `FlutterInactiveTimerPlatform` is still the seam to implement.
 
 ## Migrating to 2.0.0
 

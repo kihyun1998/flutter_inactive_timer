@@ -1,6 +1,6 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer.dart';
-import 'package:flutter_inactive_timer/flutter_inactive_timer_method_channel.dart';
+import 'package:flutter_inactive_timer/flutter_inactive_timer_ffi.dart';
 import 'package:flutter_inactive_timer/flutter_inactive_timer_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
@@ -47,8 +47,8 @@ void main() {
   final FlutterInactiveTimerPlatform initialPlatform =
       FlutterInactiveTimerPlatform.instance;
 
-  test('$MethodChannelFlutterInactiveTimer is the default instance', () {
-    expect(initialPlatform, isInstanceOf<MethodChannelFlutterInactiveTimer>());
+  test('$FfiFlutterInactiveTimer is the default instance', () {
+    expect(initialPlatform, isInstanceOf<FfiFlutterInactiveTimer>());
   });
 
   test(

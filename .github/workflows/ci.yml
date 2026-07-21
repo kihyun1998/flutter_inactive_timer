@@ -58,28 +58,12 @@ jobs:
           channel: stable
           cache: true
 
-      # The gtest harness links the Flutter Windows engine + client wrapper.
-      - name: Precache Windows engine artifacts
-        run: flutter precache --windows
-
-      # Put cl/link on PATH so CMake uses MSVC regardless of the runner's VS layout.
-      - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Configure
-        run: cmake -S windows/test -B build/win-test -G Ninja -DCMAKE_BUILD_TYPE=Debug
-
-      - name: Build
-        run: cmake --build build/win-test
-
-      - name: Test
-        run: ctest --test-dir build/win-test --output-on-failure
-
-      # The Dart job runs on Linux and never loads user32.dll, so it sees none
-      # of the FFI binding — only the arithmetic underneath it. Agreement
-      # between the FFI source and the method channel can only be asserted on a
-      # real Windows host, which is here (ADR-0004).
-      - name: Idle parity
+      # The gtest harness that used to be configured here went with the C++
+      # plugin (ADR-0004). What replaces it is not another native test but this:
+      # the Dart job runs on Linux and never loads user32.dll, so this is the
+      # only place the Windows binding executes at all. A wrong symbol name or
+      # a wrong unit is invisible everywhere else.
+      - name: Idle source
         working-directory: example
         run: flutter test integration_test -d windows
 
@@ -95,26 +79,17 @@ jobs:
           channel: stable
           cache: true
 
-      # Must build first, or the generated Flutter/ephemeral/*.xcfilelist files
-      # are missing and the Xcode build fails.
+      # Proves the package still builds into a macOS app now that it declares no
+      # plugin — a consumer's build is exactly this.
       - name: Build macOS app
         run: flutter build macos --debug
         working-directory: example
 
-      - name: Run XCTest
-        working-directory: example
-        run: |
-          xcodebuild test \
-            -workspace macos/Runner.xcworkspace \
-            -scheme Runner \
-            -destination 'platform=macOS' \
-            CODE_SIGNING_ALLOWED=NO
-
-      # The Dart job runs on Linux and never opens IOKit, so agreement between
-      # the FFI sources and the method channel can only be asserted here
-      # (ADR-0004). This also exercises the bindings under the example app's App
-      # Sandbox, which is the environment a shipped app runs in — a framework
-      # that could not be opened there would fail here.
-      - name: Idle parity
+      # The XCTest run that used to follow went with the Swift plugin
+      # (ADR-0004). The Dart job runs on Linux and never opens IOKit, so this is
+      # the only place the macOS binding executes. It also exercises it under
+      # the example app's App Sandbox, which is the environment a shipped app
+      # runs in — a framework that could not be opened there fails here.
+      - name: Idle source
         working-directory: example
         run: flutter test integration_test -d macos

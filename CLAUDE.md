@@ -14,7 +14,7 @@ lessons.
 `flutter_inactive_timer` is a cross-platform (**macOS / Windows**) Flutter
 **plugin** that detects user inactivity — no keyboard or mouse input — and fires
 a **Notification** (warning threshold) and an **Inactive** (timeout) callback.
-The full domain language lives in **`CONTEXT.md`**; decisions in **`docs/adr/`**.
+The full domain language lives in **`GLOSSARY.md`**; decisions in **`docs/adr/`**.
 
 - **Functional core / imperative shell.** `InactivityPolicy` (`lib/src/`) is the
   **pure** decision rule — given (idle duration, config, whether a Notification
@@ -46,5 +46,5 @@ Canonical label vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`,
 `ready-for-human`, `wontfix` (no overrides). See `docs/agents/triage-labels.md`.
 
 ### Domain docs
-Single-context layout — one `CONTEXT.md` + `docs/adr/` at the repo root. See
+Single-context layout — one `GLOSSARY.md` + `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.

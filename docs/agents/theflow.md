@@ -4,7 +4,7 @@ Project-specific data for the `theflow` skill. The skill holds the portable
 *method*; this file holds the *bindings*. Per-incident evidence lives in
 [`lessons.md`](lessons.md).
 
-Identity and the domain language live in **`CONTEXT.md`** (Monitoring · Inactive ·
+Identity and the domain language live in **`GLOSSARY.md`** (Monitoring · Inactive ·
 Notification · NotificationTrigger · Idle duration · InactivityPolicy ·
 InactivityDecision). Decisions live in **`docs/adr/`** (0001 native single-clock,
 0002 sealed NotificationTrigger, 0003 async `remaining()`).
@@ -97,7 +97,7 @@ see, so they are covered on-device instead (Step 7).
   example (#10: `NotifyBefore` was missing from the example after ship).
 - **`docs/adr/`** — an ADR's *Consequences* must be a **currently-true** sentence,
   not "what we thought then"; flip the ADR when the decision flips.
-- **`CONTEXT.md` glossary** — define a new concept (`NotificationTrigger`, `Idle
+- **`GLOSSARY.md` glossary** — define a new concept (`NotificationTrigger`, `Idle
   duration`, `InactivityDecision`) here first, or the code fills the blank arbitrarily.
 - **`.pubignore`** — a present `.pubignore` disables git-based listing. db4a8be: a
   `.pubignore` copied from another repo listed a nonexistent `CODE.md`, so `build/`

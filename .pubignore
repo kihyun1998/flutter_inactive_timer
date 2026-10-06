@@ -7,5 +7,5 @@ coverage/
 # Repository tooling and development docs — not needed by package consumers.
 .github/
 docs/
-CONTEXT.md
+GLOSSARY.md
 CLAUDE.md

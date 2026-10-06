@@ -3,7 +3,7 @@
 /// A closed set: a trigger is *either* a percentage of the timeout
 /// ([NotifyAtPercent]) *or* a fixed lead time before it ([NotifyBefore]) —
 /// never both. Passing `null` where a trigger is expected means "no
-/// Notification; fire only at timeout". See `CONTEXT.md`.
+/// Notification; fire only at timeout". See `GLOSSARY.md`.
 sealed class NotificationTrigger {
   const NotificationTrigger();
 }

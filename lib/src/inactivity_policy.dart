@@ -72,7 +72,7 @@ class ResetFromInput extends InactivityDecision {
 
 /// Pure decision rule for inactivity monitoring. Owns no timer and makes no
 /// platform calls — given an [InactivitySnapshot] it returns an
-/// [InactivityDecision]. See `CONTEXT.md`.
+/// [InactivityDecision]. See `GLOSSARY.md`.
 class InactivityPolicy {
   const InactivityPolicy();
 

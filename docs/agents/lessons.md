@@ -1,8 +1,8 @@
 # Lessons — flutter_inactive_timer 실증
 
-이 repo 가 `theflow` 의 각 단계에서 실제로 **무엇을 놓쳤나** 의 기록 — 규칙에 무게를 주는
-근거. 전부 이 repo 에서 실제로 일어났다. 단계 번호는 `theflow` SKILL.md 와 일치. 바인딩
-(`theflow.md`)이 추상으로 읽히면 여기 사건과 대조하라.
+이 repo 에서 실제로 **무엇을 놓쳤나** 의 기록 — 규칙에 무게를 주는 근거. 전부 이 repo 에서
+실제로 일어났다. 단계 번호는 폐기된 `theflow` 의 것으로, 분류용으로만 남아 있다. 현재 규칙은
+`CLAUDE.md` 와 territory map(`docs/map/`)에 있고, map 노트가 여기 사건을 근거로 링크한다.
 
 ---
 

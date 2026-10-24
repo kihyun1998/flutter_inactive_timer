@@ -34,6 +34,16 @@ The full domain language lives in **`GLOSSARY.md`**; decisions in **`docs/adr/`*
   `generation`, `mounted`) and add a race-reproducing test. Four same-shaped bugs
   came from skipping this (see `docs/agents/lessons.md`).
 
+## Comments
+
+A comment says what the code is. Why it is this way, what it deliberately
+leaves out, the trap and the measured value go to the territory note under
+`docs/map/`. Where none seems to hold it, search the folder and the code symbol
+first; only then start a new note, named for what the system does there, not
+for the file. History goes to the commit message. Comments written before this
+rule still carry the rest: never delete one whose content the map does not yet
+hold — move it first (`decant`).
+
 ## Agent skills
 
 ### Issue tracker

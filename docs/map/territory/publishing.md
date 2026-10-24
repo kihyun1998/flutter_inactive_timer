@@ -13,7 +13,7 @@ and the version line. Rarely touched, irreversible when wrong.
 - **`.pubignore` replaces `.gitignore` for the archive** — when present, pub ignores `.gitignore`, so build output must be listed explicitly. A copied `.pubignore` once shipped a 42 MB test DLL in a 64 MB package (commit `db4a8be`, [lessons](../../agents/lessons.md)). `docs/` is excluded, which is why README links ADRs by absolute GitHub URL.
 - **A breaking change ships a copy-pasteable migration line** in CHANGELOG and a README *Migrating to x* section (3.0.0 and 4.0.0 precedents in both files).
 - **Constraints are consumers' floors**: the root has no committed lockfile (`git ls-files` lists only `example/` and `example_cli/` lockfiles), so raising a caret narrows every consumer's resolution (#33's Dependabot rationale).
-- **Publishing is the maintainer's act** — the agent does not run `pub publish` (`docs/agents/theflow.md` Step 7, stated policy).
+- **Publishing is the maintainer's act** — the agent does not run `pub publish`; a `--dry-run` is fine (maintainer, 2026-10-24).
 
 ## Code
 - `pubspec.yaml` — `version`, `environment`, `dependencies` (`ffi`, `meta`)

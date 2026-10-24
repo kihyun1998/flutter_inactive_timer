@@ -12,7 +12,6 @@ Flutter at all.
 - **No Flutter SDK by design** — `dart pub get --no-example`, since `example/` is a Flutter app and resolving it would fail the job before any gate (commit `35c61af`; ci.yml comments).
 - **`--check-ignore` is load-bearing**: without it the `coverage:ignore` regions around FFI plumbing re-enter the denominator and sink the gate (ci.yml comment, step `Format coverage`).
 - **The floor lives in ci.yml** (step `Check coverage threshold`); a `coverage:ignore` shrinks the denominator, so one wrapped around a decision hides it — lift the decision into a pure static instead (#19, [lessons](../../agents/lessons.md)).
-- **A sub-package needs its own `analysis_options.yaml`** or root `dart format` cannot resolve `package:lints` for it; `example_cli/` carries one for that reason (`docs/agents/theflow.md` Step 7 — checked: `example_cli/analysis_options.yaml` exists).
 - Time in tests flows through `fake_async` and an injected clock; nothing actually waits (`test/flutter_inactive_timer_test.dart`, dev dependency `fake_async`).
 
 ## Code
@@ -31,4 +30,5 @@ Flutter at all.
 - [publishing](publishing.md) — a dependency that needs Flutter breaks this job first, which is the point.
 
 ## Known holes / open
+- `example_cli/` carries its own `analysis_options.yaml` (added in `68e24b4`); why it needs one rather than inheriting the root's is recorded nowhere but a retired doc, and was not checked here.
 - Line coverage hides branch gaps (#17: the post-`await` guard line was covered before its `Duration.zero` branch was ever taken, [lessons](../../agents/lessons.md)). No branch-coverage gate exists.

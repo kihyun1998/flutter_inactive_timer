@@ -34,4 +34,3 @@ arithmetic.
 
 ## Known holes / open
 - The test checks the value moves correctly; it cannot see leaks, wrong release counts, or behaviour under real input bursts.
-- `docs/agents/theflow.md` still names `example/integration_test/idle_parity_test.dart`, which no longer exists (the file is `idle_source_test.dart`). Listed in the hub's findings; #33 retires that doc.

@@ -44,6 +44,14 @@ for the file. History goes to the commit message. Comments written before this
 rule still carry the rest: never delete one whose content the map does not yet
 hold — move it first (`decant`).
 
+## Territory map
+
+The map is **[`docs/map/README.md`](docs/map/README.md)**. Read the territories a
+change touches — and their blast radius and invariants — before designing it;
+after it lands, update the notes it made false. When a fix reveals a fact, ask
+whether it holds at every site that shares the same assumption; if so, the fix
+lands with an invariant note under `docs/map/invariant/`.
+
 ## Agent skills
 
 ### Issue tracker

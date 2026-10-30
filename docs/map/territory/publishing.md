@@ -14,7 +14,7 @@ and the version line. Rarely touched, irreversible when wrong.
 - **A breaking change ships a copy-pasteable migration line** in CHANGELOG and a README *Migrating to x* section (3.0.0 and 4.0.0 precedents in both files).
 - **Constraints are consumers' floors**: the root has no committed lockfile (`git ls-files` lists only `example/` and `example_cli/` lockfiles), so raising a caret narrows every consumer's resolution (#33's Dependabot rationale).
 - **Dependabot splits by what ships** (`.github/dependabot.yml`): the root is weekly with `increase-if-necessary` and one PR per dependency, because with no lockfile a PR opens only when a release falls outside a caret, and each such PR is a floor decision for consumers. `example/`, `example_cli/` and the workflow actions get one grouped PR a month, since nothing ships from them. Every PR is labelled `needs-triage` (#33).
-- **Publishing is the maintainer's act** — the agent does not run `pub publish`; a `--dry-run` is fine (maintainer, 2026-10-24).
+- Before a release, run `pub-ready`.
 
 ## Code
 - `pubspec.yaml` — `version`, `environment`, `dependencies` (`ffi`, `meta`)

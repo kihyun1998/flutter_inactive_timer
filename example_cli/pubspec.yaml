@@ -15,4 +15,4 @@ dependencies:
 dev_dependencies:
   # So this package resolves the same lint set as the root one; without it the
   # root `analysis_options.yaml` cannot be resolved from inside this directory.
-  lints: ^5.0.0
+  lints: ^6.1.0
